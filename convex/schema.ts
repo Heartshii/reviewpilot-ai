@@ -114,4 +114,8 @@ export default defineSchema({
     restaurantId: v.id("restaurants"),
     submittedAt: v.number(),
   }),
+  globalSettings: defineTable({
+    key: v.string(),
+    value: v.string(),
+  }),
 });
