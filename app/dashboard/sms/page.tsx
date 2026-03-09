@@ -61,7 +61,7 @@ export default function SmsPage() {
     restaurantId ? { restaurantId } : "skip"
   );
 
-  const approveSms = useMutation(api.smsMutations.approveSms);
+  const approveSms = useAction(api.sms.approveSms);
   const dismissSms = useMutation(api.dashboardMutations.dismissSms);
   const updateSmsContent = useMutation(api.dashboardMutations.updateSmsContent);
   const sendBulkSms = useAction(api.sms.sendBulkSms);

@@ -1,3 +1,18 @@
+export const updateSmsLogStatus = internalMutation({
+  args: {
+    smsLogId: v.id("smsLogs"),
+    status: v.union(
+      v.literal("PENDING_APPROVAL"),
+      v.literal("SENT"),
+      v.literal("FAILED")
+    ),
+    approvedBy: v.optional(v.string()),
+  },
+  handler: async (ctx, { smsLogId, status, approvedBy }) => {
+    await ctx.db.patch(smsLogId, { status, approvedBy });
+  },
+});
+
 import { v } from "convex/values";
 import {
   internalMutation,
@@ -235,14 +250,7 @@ export const approveSms = mutation({
       status: "SENT",
       approvedBy: approvedByUserId,
     });
-    if (log.customerId) {
-      await ctx.scheduler.runAfter(0, internal.sms.sendApprovedApology, {
-        smsLogId,
-        customerId: log.customerId,
-        restaurantId: log.restaurantId,
-        approvedByUserId,
-      });
-    }
     return { ok: true };
   },
 });
+

@@ -64,7 +64,7 @@ export const runReengagementSms = internalAction({
       { daysSinceVisit }
     );
     for (const customerId of customerIds) {
-      await ctx.runAction(internal.sms.sendReengagementSms, {
+      await ctx.runAction(api.sms.sendReengagementSms, {
         customerId,
         daysSinceVisit,
       });

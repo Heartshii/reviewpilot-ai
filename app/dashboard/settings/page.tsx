@@ -39,22 +39,36 @@ export default function SettingsPage() {
   const [newStaffRole, setNewStaffRole] = useState<"OWNER" | "STAFF">("STAFF");
   const [saved, setSaved] = useState(false);
 
-  const updateSettings = useMutation(api.dashboardMutations.updateRestaurantSettings);
+  const updateSettings = useMutation(
+    api.dashboardMutations.updateRestaurantSettings
+  );
 
   useEffect(() => {
-    if (restaurant && settings) {
+    if (!settings) return;
+
+    if (restaurant) {
       setGoogleUrl(restaurant.googleBusinessUrl ?? "");
-      setSendDelay(settings.sendDelayMinutes);
-      setBirthdayEnabled(settings.birthdayEnabled);
+    }
+
+    setSendDelay(settings.sendDelayMinutes ?? 60);
+    setBirthdayEnabled(settings.birthdayEnabled ?? true);
+    setRe30(settings.reengagement30 ?? true);
+    setRe60(settings.reengagement60 ?? true);
+    setRe90(settings.reengagement90 ?? true);
+
+    if ("birthdayTemplate" in settings) {
       setBirthdayTemplate(settings.birthdayTemplate ?? BIRTHDAY_DEFAULT);
-      setRe30(settings.reengagement30);
-      setRe60(settings.reengagement60);
-      setRe90(settings.reengagement90);
-      setKioskName(settings.kioskDisplayName ?? restaurant.name);
+    }
+    if ("kioskDisplayName" in settings) {
+      setKioskName(settings.kioskDisplayName ?? restaurant?.name ?? "");
+    }
+    if ("kioskAccentColor" in settings) {
       setKioskAccent(settings.kioskAccentColor ?? "#3b82f6");
+    }
+    if ("kioskLogoUrl" in settings) {
       setKioskLogo(settings.kioskLogoUrl ?? "");
     }
-  }, [restaurant, settings]);
+  }, [settings, restaurant]);
 
   if (!restaurantId || restaurant === undefined || settings === undefined) {
     return (
