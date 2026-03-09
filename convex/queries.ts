@@ -10,6 +10,55 @@ export const getRestaurant = query({
   },
 });
 
+export const getRestaurantBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    const restaurant = await ctx.db
+      .query("restaurants")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+    if (!restaurant) return null;
+    const settings = await ctx.db
+      .query("restaurantSettings")
+      .withIndex("by_restaurantId", (q) =>
+        q.eq("restaurantId", restaurant._id)
+      )
+      .first();
+    return {
+      ...restaurant,
+      restaurantSettings: {
+        sendDelayMinutes: 60,
+        birthdayEnabled: true,
+        reengagement30: true,
+        reengagement60: true,
+        reengagement90: true,
+        ...settings,
+      },
+    };
+  },
+});
+
+export const findCustomerByLastFour = query({
+  args: {
+    lastFour: v.string(),
+    restaurantId: v.id("restaurants"),
+  },
+  handler: async (ctx, { lastFour, restaurantId }) => {
+    const customers = await ctx.db
+      .query("customers")
+      .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+      .collect();
+    const match = customers.find((c) => c.phone.endsWith(lastFour));
+    if (!match) return null;
+    return {
+      name: match.name,
+      points: match.points,
+      _id: match._id,
+      phone: match.phone,
+    };
+  },
+});
+
 export const getStaff = query({
   args: { restaurantId: v.id("restaurants") },
   handler: async (ctx, { restaurantId }) => {

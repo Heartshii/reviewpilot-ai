@@ -12,7 +12,9 @@ export default defineSchema({
     googleBusinessUrl: v.optional(v.string()),
     twilioNumber: v.optional(v.string()),
     active: v.boolean(),
-  }).index("by_twilioNumber", ["twilioNumber"]),
+  })
+    .index("by_twilioNumber", ["twilioNumber"])
+    .index("by_slug", ["slug"]),
 
   users: defineTable({
     clerkId: v.string(),

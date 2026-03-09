@@ -1,19 +1,5 @@
-export const updateSmsLogStatus = internalMutation({
-  args: {
-    smsLogId: v.id("smsLogs"),
-    status: v.union(
-      v.literal("PENDING_APPROVAL"),
-      v.literal("SENT"),
-      v.literal("FAILED")
-    ),
-    approvedBy: v.optional(v.string()),
-  },
-  handler: async (ctx, { smsLogId, status, approvedBy }) => {
-    await ctx.db.patch(smsLogId, { status, approvedBy });
-  },
-});
-
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 import {
   internalMutation,
   internalQuery,
@@ -187,7 +173,7 @@ export const getSegmentCustomers = internalQuery({
     if (segment === "INACTIVE") {
       return all
         .filter((c) => {
-          const lastVisit = c.lastVisitAt ?? c.createdAt;
+          const lastVisit = (c as any).lastVisitAt ?? c.createdAt;
           return lastVisit < sixtyDaysAgo;
         })
         .map((c) => c._id);
@@ -197,16 +183,16 @@ export const getSegmentCustomers = internalQuery({
         .query("feedback")
         .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
         .collect();
-      const latestByCustomer = new Map<
-        string,
-        { rating: number; createdAt: number }
-      >();
+        const latestByCustomer = new Map();
       for (const f of feedbacks) {
         if (!f.customerId) continue;
         const k = f.customerId;
         const existing = latestByCustomer.get(k);
         if (!existing || f.createdAt > existing.createdAt)
-          latestByCustomer.set(k, { rating: f.rating, createdAt: f.createdAt });
+          latestByCustomer.set(k, {
+            rating: f.rating,
+            createdAt: f.createdAt,
+          });
       }
       return all
         .filter((c) => {
@@ -237,6 +223,55 @@ export const handleOptOut = internalMutation({
   },
 });
 
+export const createCustomer = mutation({
+  args: {
+    name: v.string(),
+    phone: v.string(),
+    restaurantId: v.id("restaurants"),
+    birthdayMonth: v.optional(v.number()),
+    birthdayDay: v.optional(v.number()),
+    optedInSms: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("customers")
+      .withIndex("by_restaurant_phone", (q) =>
+        q.eq("restaurantId", args.restaurantId).eq("phone", args.phone)
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        visitCount: existing.visitCount + 1,
+        lastVisitAt: Date.now(),
+      });
+      const updated = await ctx.db.get(existing._id);
+      return { existing: true, customer: updated };
+    }
+
+    const customerId = await ctx.db.insert("customers", {
+      name: args.name,
+      phone: args.phone,
+      restaurantId: args.restaurantId,
+      birthdayMonth: args.birthdayMonth,
+      birthdayDay: args.birthdayDay,
+      points: 0,
+      visitCount: 1,
+      optedInSms: args.optedInSms,
+      createdAt: Date.now(),
+    });
+
+    await ctx.scheduler.runAfter(
+      60 * 60 * 1000,
+      api.sms.sendWelcomeSms,
+      { customerId }
+    );
+
+    const customer = await ctx.db.get(customerId);
+    return { existing: false, customer };
+  },
+});
+
 export const approveSms = mutation({
   args: {
     smsLogId: v.id("smsLogs"),
@@ -254,3 +289,31 @@ export const approveSms = mutation({
   },
 });
 
+export const updateSmsLogStatus = internalMutation({
+  args: {
+    smsLogId: v.id("smsLogs"),
+    status: v.union(
+      v.literal("PENDING_APPROVAL"),
+      v.literal("SENT"),
+      v.literal("FAILED")
+    ),
+    approvedBy: v.optional(v.string()),
+  },
+  handler: async (ctx, { smsLogId, status, approvedBy }) => {
+    await ctx.db.patch(smsLogId, { status, approvedBy });
+  },
+});
+
+export const findCustomerByLastFour = internalQuery({
+  args: {
+    lastFour: v.string(),
+    restaurantId: v.id("restaurants"),
+  },
+  handler: async (ctx, { lastFour, restaurantId }) => {
+    const customers = await ctx.db
+      .query("customers")
+      .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+      .collect();
+    return customers.find((c) => c.phone.slice(-4) === lastFour) ?? null;
+  },
+});
