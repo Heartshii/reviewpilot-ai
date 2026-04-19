@@ -1,40 +1,79 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const BIRTHDAY_DEFAULT =
   "Happy Birthday [name]! Free dessert on your next visit. Show this text. - [restaurant]";
 
-export default function SettingsPage() {
-  const restaurantId = useRestaurantId();
-  const restaurant = useQuery(
-    api.queries.getRestaurant,
-    restaurantId ? { restaurantId } : "skip"
-  );
-  const settings = useQuery(
-    api.queries.getRestaurantSettings,
-    restaurantId ? { restaurantId } : "skip"
-  );
-  const staff = useQuery(
-    api.queries.getStaff,
-    restaurantId ? { restaurantId } : "skip"
-  );
+type RestaurantSettingsView =
+  | Doc<"restaurantSettings">
+  | {
+      sendDelayMinutes: number;
+      birthdayEnabled: boolean;
+      reengagement30: boolean;
+      reengagement60: boolean;
+      reengagement90: boolean;
+    };
 
-  const [googleUrl, setGoogleUrl] = useState("");
-  const [sendDelay, setSendDelay] = useState(60);
-  const [birthdayEnabled, setBirthdayEnabled] = useState(true);
-  const [birthdayTemplate, setBirthdayTemplate] = useState("");
-  const [re30, setRe30] = useState(true);
-  const [re60, setRe60] = useState(true);
-  const [re90, setRe90] = useState(true);
-  const [kioskName, setKioskName] = useState("");
-  const [kioskAccent, setKioskAccent] = useState("#3b82f6");
-  const [kioskLogo, setKioskLogo] = useState("");
+function buildFormSeed(
+  restaurant: Doc<"restaurants">,
+  settings: RestaurantSettingsView
+) {
+  return {
+    googleUrl: restaurant.googleBusinessUrl ?? "",
+    sendDelay: settings.sendDelayMinutes ?? 60,
+    birthdayEnabled: settings.birthdayEnabled ?? true,
+    birthdayTemplate:
+      "birthdayTemplate" in settings && settings.birthdayTemplate !== undefined
+        ? settings.birthdayTemplate
+        : BIRTHDAY_DEFAULT,
+    re30: settings.reengagement30 ?? true,
+    re60: settings.reengagement60 ?? true,
+    re90: settings.reengagement90 ?? true,
+    kioskName:
+      "kioskDisplayName" in settings
+        ? (settings.kioskDisplayName ?? restaurant.name)
+        : restaurant.name,
+    kioskAccent:
+      "kioskAccentColor" in settings
+        ? (settings.kioskAccentColor ?? "#3b82f6")
+        : "#3b82f6",
+    kioskBg:
+      "kioskBgImageUrl" in settings ? (settings.kioskBgImageUrl ?? "") : "",
+    kioskLogo:
+      "kioskLogoUrl" in settings ? (settings.kioskLogoUrl ?? "") : "",
+  };
+}
+
+function DashboardSettingsForm({
+  restaurantId,
+  restaurant,
+  settings,
+  staff,
+}: {
+  restaurantId: Id<"restaurants">;
+  restaurant: Doc<"restaurants">;
+  settings: RestaurantSettingsView;
+  staff: Doc<"users">[] | undefined;
+}) {
+  const seed = buildFormSeed(restaurant, settings);
+
+  const [googleUrl, setGoogleUrl] = useState(seed.googleUrl);
+  const [sendDelay, setSendDelay] = useState(seed.sendDelay);
+  const [birthdayEnabled, setBirthdayEnabled] = useState(seed.birthdayEnabled);
+  const [birthdayTemplate, setBirthdayTemplate] = useState(seed.birthdayTemplate);
+  const [re30, setRe30] = useState(seed.re30);
+  const [re60, setRe60] = useState(seed.re60);
+  const [re90, setRe90] = useState(seed.re90);
+  const [kioskName, setKioskName] = useState(seed.kioskName);
+  const [kioskAccent, setKioskAccent] = useState(seed.kioskAccent);
+  const [kioskBg, setKioskBg] = useState(seed.kioskBg);
+  const [kioskLogo, setKioskLogo] = useState(seed.kioskLogo);
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [newStaffRole, setNewStaffRole] = useState<"OWNER" | "STAFF">("STAFF");
   const [saved, setSaved] = useState(false);
@@ -42,41 +81,6 @@ export default function SettingsPage() {
   const updateSettings = useMutation(
     api.dashboardMutations.updateRestaurantSettings
   );
-
-  useEffect(() => {
-    if (!settings) return;
-
-    if (restaurant) {
-      setGoogleUrl(restaurant.googleBusinessUrl ?? "");
-    }
-
-    setSendDelay(settings.sendDelayMinutes ?? 60);
-    setBirthdayEnabled(settings.birthdayEnabled ?? true);
-    setRe30(settings.reengagement30 ?? true);
-    setRe60(settings.reengagement60 ?? true);
-    setRe90(settings.reengagement90 ?? true);
-
-    if ("birthdayTemplate" in settings) {
-      setBirthdayTemplate(settings.birthdayTemplate ?? BIRTHDAY_DEFAULT);
-    }
-    if ("kioskDisplayName" in settings) {
-      setKioskName(settings.kioskDisplayName ?? restaurant?.name ?? "");
-    }
-    if ("kioskAccentColor" in settings) {
-      setKioskAccent(settings.kioskAccentColor ?? "#3b82f6");
-    }
-    if ("kioskLogoUrl" in settings) {
-      setKioskLogo(settings.kioskLogoUrl ?? "");
-    }
-  }, [settings, restaurant]);
-
-  if (!restaurantId || restaurant === undefined || settings === undefined) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-zinc-500">Loading…</p>
-      </div>
-    );
-  }
 
   const saveRestaurantInfo = async () => {
     await updateSettings({ restaurantId, googleBusinessUrl: googleUrl });
@@ -104,6 +108,7 @@ export default function SettingsPage() {
       kioskDisplayName: kioskName || undefined,
       kioskAccentColor: kioskAccent || undefined,
       kioskLogoUrl: kioskLogo || undefined,
+      kioskBgImageUrl: kioskBg || undefined,
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -273,6 +278,19 @@ export default function SettingsPage() {
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white"
             />
           </div>
+          <div>
+            <label className="block text-sm text-zinc-400">Background Image URL</label>
+            <input
+              type="url"
+              value={kioskBg}
+              onChange={(e) => setKioskBg(e.target.value)}
+              placeholder="https://... (direct image URL)"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Use a direct image URL. Will show as a full background behind the kiosk.
+            </p>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={saveKioskBranding}
@@ -344,5 +362,42 @@ export default function SettingsPage() {
         </p>
       )}
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  const restaurantId = useRestaurantId();
+  const restaurant = useQuery(
+    api.queries.getRestaurant,
+    restaurantId ? { restaurantId } : "skip"
+  );
+  const settings = useQuery(
+    api.queries.getRestaurantSettings,
+    restaurantId ? { restaurantId } : "skip"
+  );
+  const staff = useQuery(
+    api.queries.getStaff,
+    restaurantId ? { restaurantId } : "skip"
+  );
+
+  if (!restaurantId || restaurant === undefined || settings === undefined) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-zinc-500">Loading…</p>
+      </div>
+    );
+  }
+
+  const formKey =
+    "_id" in settings ? settings._id : restaurantId;
+
+  return (
+    <DashboardSettingsForm
+      key={formKey}
+      restaurantId={restaurantId}
+      restaurant={restaurant}
+      settings={settings}
+      staff={staff}
+    />
   );
 }

@@ -40,11 +40,6 @@ http.route({
               rating,
               restaurantId: restaurant._id,
             });
-          } else if (body.toUpperCase() === "YES") {
-            await ctx.runAction(internal.sms.handleReviewConfirmation, {
-              customerPhone: from,
-              restaurantId: restaurant._id,
-            });
           } else if (body.toUpperCase() === "STOP") {
             await ctx.runMutation(internal.smsMutations.handleOptOut, {
               customerPhone: from,

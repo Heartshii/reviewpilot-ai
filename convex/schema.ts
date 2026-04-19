@@ -38,6 +38,7 @@ export default defineSchema({
     kioskAccentColor: v.optional(v.string()),
     kioskLogoUrl: v.optional(v.string()),
     kioskDisplayName: v.optional(v.string()),
+    kioskBgImageUrl: v.optional(v.string()),
   }).index("by_restaurantId", ["restaurantId"]),
 
   customers: defineTable({

@@ -37,7 +37,7 @@ export default function AdminSettingsPage() {
       <div className="space-y-4">
         <h2 className="font-semibold text-zinc-300">Global SMS Templates</h2>
         <p className="text-sm text-zinc-500">
-          These are the default templates used when restaurants haven't set their own.
+          These are the default templates used when restaurants have not set their own.
         </p>
         {templates.map(({ key, label, placeholder }) => (
           <div key={key} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">

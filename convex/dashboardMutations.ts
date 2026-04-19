@@ -46,6 +46,7 @@ export const updateRestaurantSettings = mutation({
     kioskAccentColor: v.optional(v.string()),
     kioskLogoUrl: v.optional(v.string()),
     kioskDisplayName: v.optional(v.string()),
+    kioskBgImageUrl: v.optional(v.string()),   // ← ADD THIS
     googleBusinessUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -84,6 +85,7 @@ export const updateRestaurantSettings = mutation({
       kioskAccentColor?: string;
       kioskLogoUrl?: string;
       kioskDisplayName?: string;
+      kioskBgImageUrl?: string;   // ← ADD THIS
     };
 
     if (existing) {
@@ -100,6 +102,7 @@ export const updateRestaurantSettings = mutation({
         kioskAccentColor: merged.kioskAccentColor,
         kioskLogoUrl: merged.kioskLogoUrl,
         kioskDisplayName: merged.kioskDisplayName,
+        kioskBgImageUrl: merged.kioskBgImageUrl,   // ← ADD THIS
       });
     }
     return { ok: true };

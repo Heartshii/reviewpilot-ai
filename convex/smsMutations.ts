@@ -5,7 +5,6 @@ import {
   internalQuery,
   mutation,
 } from "./_generated/server";
-import { internal } from "./_generated/api";
 
 export const getCustomer = internalQuery({
   args: { customerId: v.id("customers") },
@@ -173,7 +172,7 @@ export const getSegmentCustomers = internalQuery({
     if (segment === "INACTIVE") {
       return all
         .filter((c) => {
-          const lastVisit = (c as any).lastVisitAt ?? c.createdAt;
+          const lastVisit = c.lastVisitAt ?? c.createdAt;
           return lastVisit < sixtyDaysAgo;
         })
         .map((c) => c._id);
@@ -315,5 +314,14 @@ export const findCustomerByLastFour = internalQuery({
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
       .collect();
     return customers.find((c) => c.phone.slice(-4) === lastFour) ?? null;
+  },
+});
+export const getRestaurantSettings = internalQuery({
+  args: { restaurantId: v.id("restaurants") },
+  handler: async (ctx, { restaurantId }) => {
+    return await ctx.db
+      .query("restaurantSettings")
+      .withIndex("by_restaurantId", (q) => q.eq("restaurantId", restaurantId))
+      .first();
   },
 });
