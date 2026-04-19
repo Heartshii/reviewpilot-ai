@@ -5,92 +5,121 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 const templates = [
-  { key: "template_welcome", label: "Welcome SMS", placeholder: "Hi [name]! Thanks for visiting [restaurant]..." },
-  { key: "template_apology", label: "Apology SMS", placeholder: "Hi [name], we're sorry about your experience..." },
-  { key: "template_birthday", label: "Birthday SMS", placeholder: "Happy Birthday [name]! Free dessert on your next visit..." },
+  { key: "template_welcome",  label: "Welcome SMS",  placeholder: "Hi [name]! Thanks for visiting [restaurant]…" },
+  { key: "template_apology",  label: "Apology SMS",  placeholder: "Hi [name], we're sorry about your experience…" },
+  { key: "template_birthday", label: "Birthday SMS", placeholder: "Happy Birthday [name]! Free dessert on your next visit…" },
 ];
 
 const features = [
-  { key: "loyalty", label: "Loyalty Points" },
-  { key: "bulkSms", label: "Bulk SMS" },
-  { key: "aiDrafting", label: "AI Drafting" },
-  { key: "reengagement", label: "Re-engagement" },
-  { key: "birthdaySms", label: "Birthday SMS" },
-  { key: "kioskBranding", label: "Kiosk Branding" },
+  { key: "loyalty",        label: "Loyalty Points" },
+  { key: "bulkSms",        label: "Bulk SMS" },
+  { key: "aiDrafting",     label: "AI Drafting" },
+  { key: "reengagement",   label: "Re-engagement" },
+  { key: "birthdaySms",    label: "Birthday SMS" },
+  { key: "kioskBranding",  label: "Kiosk Branding" },
 ];
+
+const tierColors = ["text-zinc-400", "text-blue-400", "text-emerald-400"];
 
 export default function AdminSettingsPage() {
   const updateSetting = useMutation(api.adminMutations.updateGlobalSetting);
   const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
 
   const handleSave = async (key: string) => {
     await updateSetting({ key, value: templateValues[key] ?? "" });
-    setSaved((prev) => ({ ...prev, [key]: true }));
-    setTimeout(() => setSaved((prev) => ({ ...prev, [key]: false })), 2000);
+    setSaved((p) => ({ ...p, [key]: true }));
+    setTimeout(() => setSaved((p) => ({ ...p, [key]: false })), 2000);
+  };
+
+  const handleFeatureToggle = async (key: string, checked: boolean) => {
+    setFeatureFlags((p) => ({ ...p, [key]: checked }));
+    await updateSetting({ key, value: checked ? "true" : "false" });
   };
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Platform Settings</h1>
+    <div className="space-y-8 max-w-3xl">
+      <div>
+        <h1 className="text-2xl font-light tracking-tight text-white">Platform Settings</h1>
+        <p className="mt-1 text-sm text-white/30">Global defaults and feature configuration</p>
+      </div>
 
-      <div className="space-y-4">
-        <h2 className="font-semibold text-zinc-300">Global SMS Templates</h2>
-        <p className="text-sm text-zinc-500">
-          These are the default templates used when restaurants have not set their own.
-        </p>
+      {/* SMS Templates */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-4">
+          <p className="text-xs font-medium uppercase tracking-widest text-white/30">SMS Templates</p>
+          <div className="h-px flex-1 bg-white/5" />
+        </div>
         {templates.map(({ key, label, placeholder }) => (
-          <div key={key} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <label className="mb-2 block font-medium">{label}</label>
+          <div key={key} className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <label className="text-sm font-medium text-white/70">{label}</label>
+              <span className="text-xs text-white/20">Use [name], [restaurant]</span>
+            </div>
             <textarea
               rows={3}
               placeholder={placeholder}
               value={templateValues[key] ?? ""}
-              onChange={(e) =>
-                setTemplateValues((prev) => ({ ...prev, [key]: e.target.value }))
-              }
-              className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500"
+              onChange={(e) => setTemplateValues((p) => ({ ...p, [key]: e.target.value }))}
+              className="w-full rounded-xl border border-white/8 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder-white/15 focus:border-white/15 resize-none"
             />
-            <button
-              onClick={() => handleSave(key)}
-              className="mt-2 rounded bg-emerald-500 px-4 py-1.5 text-sm text-black hover:bg-emerald-400"
-            >
-              {saved[key] ? "✅ Saved!" : "Save"}
-            </button>
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-xs text-white/20">{(templateValues[key] ?? "").length} chars</span>
+              <button
+                onClick={() => handleSave(key)}
+                className={`rounded-xl px-4 py-1.5 text-xs font-medium transition-all ${
+                  saved[key]
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "border border-white/10 text-white/50 hover:border-white/20 hover:text-white/80"
+                }`}
+              >
+                {saved[key] ? "✓ Saved" : "Save"}
+              </button>
+            </div>
           </div>
         ))}
-      </div>
+      </section>
 
-      <div className="space-y-4">
-        <h2 className="font-semibold text-zinc-300">Feature Flags by Tier</h2>
-        <div className="overflow-hidden rounded-lg border border-zinc-800">
+      {/* Feature Flags */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-4">
+          <p className="text-xs font-medium uppercase tracking-widest text-white/30">Feature Flags by Tier</p>
+          <div className="h-px flex-1 bg-white/5" />
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-white/5">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-900/50">
-                <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Feature</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-zinc-400">Tier 1</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-zinc-400">Tier 2</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-zinc-400">Tier 3</th>
+              <tr className="border-b border-white/5 bg-white/[0.02]">
+                <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-white/20">Feature</th>
+                {["Starter", "Growth", "Scale"].map((t, i) => (
+                  <th key={t} className={`px-5 py-3 text-center text-xs font-medium ${tierColors[i]}`}>{t}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {features.map(({ key, label }) => (
-                <tr key={key} className="border-b border-zinc-800">
-                  <td className="px-4 py-3 text-sm">{label}</td>
+              {features.map(({ key, label }, fi) => (
+                <tr key={key} className={`border-b border-white/[0.03] ${fi % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
+                  <td className="px-5 py-3.5 text-sm text-white/60">{label}</td>
                   {[1, 2, 3].map((tier) => {
-                    const settingKey = `feature_${key}_tier${tier}`;
+                    const fk = `feature_${key}_tier${tier}`;
                     return (
-                      <td key={tier} className="px-4 py-3 text-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-emerald-500"
-                          onChange={(e) =>
-                            updateSetting({
-                              key: settingKey,
-                              value: e.target.checked ? "true" : "false",
-                            })
-                          }
-                        />
+                      <td key={tier} className="px-5 py-3.5 text-center">
+                        <label className="relative inline-flex cursor-pointer items-center justify-center">
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={featureFlags[fk] ?? false}
+                            onChange={(e) => handleFeatureToggle(fk, e.target.checked)}
+                          />
+                          <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                            featureFlags[fk]
+                              ? "border-transparent bg-emerald-500 text-white"
+                              : "border-white/15 bg-transparent"
+                          }`}>
+                            {featureFlags[fk] && <span className="text-[10px]">✓</span>}
+                          </div>
+                        </label>
                       </td>
                     );
                   })}
@@ -99,7 +128,7 @@ export default function AdminSettingsPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
