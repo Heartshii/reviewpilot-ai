@@ -316,7 +316,7 @@ export default function KioskPage() {
   // ── Loading / Error states ────────────────────────────
   if (!slug || restaurant === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
+      <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
         <p className="text-zinc-500">{!slug ? "Invalid kiosk URL" : "Restaurant not found"}</p>
       </div>
     );
@@ -324,7 +324,7 @@ export default function KioskPage() {
 
   if (restaurant === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+      <div className="flex min-h-screen items-center justify-center bg-transparent">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-white/60" />
           <p className="text-sm text-white/40">Loading…</p>
@@ -340,13 +340,16 @@ export default function KioskPage() {
 
   return (
     <div
-      className="fixed inset-0 overflow-hidden bg-zinc-950 text-white"
+      className="fixed inset-0 overflow-hidden bg-transparent text-white"
       style={bgStyle}
       onClick={recordActivity}
       onTouchStart={recordActivity}
     >
       {/* Dark overlay — richer when bg image is set */}
-      <div className={`absolute inset-0 ${bgImageUrl ? "bg-black/60" : "bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950"}`} />
+      <div
+        className={`absolute inset-0 ${bgImageUrl ? "bg-black/60" : "bg-transparent"}`}
+        style={bgImageUrl ? undefined : { backgroundImage: "var(--bg-gradient), var(--bg-grid-pattern)" }}
+      />
 
       {/* Subtle radial glow using accent color */}
       <div

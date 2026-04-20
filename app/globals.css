@@ -1,8 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a14;
+  --foreground: #ededed;
+  --bg-primary: #0a0a14;
+  --bg-secondary: #0d0d1f;
+  --bg-grid-size: 40px;
+  --bg-grid-line: rgba(255, 255, 255, 0.04);
+  --bg-grid-pattern:
+    repeating-linear-gradient(
+      to right,
+      var(--bg-grid-line) 0,
+      var(--bg-grid-line) 1px,
+      transparent 1px,
+      transparent var(--bg-grid-size)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--bg-grid-line) 0,
+      var(--bg-grid-line) 1px,
+      transparent 1px,
+      transparent var(--bg-grid-size)
+    );
 }
 
 @theme inline {
@@ -14,13 +33,91 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #0a0a14;
     --foreground: #ededed;
   }
 }
 
+html,
 body {
-  background: var(--background);
+  min-height: 100%;
+  background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 50% 35%, var(--bg-secondary) 0%, var(--bg-primary) 70%),
+    var(--bg-grid-pattern);
+  background-size: cover, var(--bg-grid-size) var(--bg-grid-size);
+  background-attachment: fixed;
   color: var(--foreground);
+}
+
+body {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.premium-background-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background-image:
+    radial-gradient(circle at 50% 35%, #0d0d2a 0%, #090b18 50%, #080810 100%),
+    linear-gradient(135deg, rgba(38, 146, 173, 0.06), rgba(130, 72, 172, 0.05)),
+    var(--bg-grid-pattern);
+  background-size: cover, cover, var(--bg-grid-size) var(--bg-grid-size);
+  background-position: center, center, center;
+  background-repeat: no-repeat, no-repeat, repeat;
+}
+
+.premium-background-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 25%, rgba(255, 255, 255, 0.03), transparent 30%),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.025), transparent 35%);
+}
+
+.premium-bg-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(174, 245, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 50%, rgba(255, 255, 255, 0) 100%);
+  box-shadow: 0 0 8px rgba(122, 236, 255, 0.25);
+  animation-name: var(--particle-animation, float-up);
+  animation-duration: var(--particle-duration, 14s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: var(--particle-delay, 0s);
+  opacity: 0.2;
+}
+
+@keyframes float-up {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate3d(0, -110px, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes float-diagonal {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate3d(48px, -100px, 0);
+    opacity: 0;
+  }
 }

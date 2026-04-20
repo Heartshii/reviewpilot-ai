@@ -22,15 +22,15 @@ export default function DashboardLayout({
 
   if (!restaurantId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
+      <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
         <p className="text-zinc-400">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-white">
-      <aside className="flex w-56 flex-col border-r border-zinc-800 bg-zinc-900/50">
+    <div className="flex min-h-screen bg-transparent text-white">
+      <aside className="flex w-56 flex-col border-r border-zinc-800 bg-[#0d0d14]/80 backdrop-blur">
         <div className="border-b border-zinc-800 p-4">
           <h1 className="font-semibold text-white">ReviewPilot AI</h1>
           <p className="text-xs text-zinc-500">Restaurant Dashboard</p>

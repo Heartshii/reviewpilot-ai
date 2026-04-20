@@ -14,7 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-screen bg-[#0a0a0f] text-white">
+    <div className="flex min-h-screen bg-transparent text-white">
       {/* Sidebar */}
       <aside className="flex w-60 flex-col border-r border-white/5 bg-[#0d0d14]">
         {/* Brand */}
@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main */}
       <main className="flex-1 overflow-auto">
         {/* Top bar */}
-        <div className="sticky top-0 z-10 border-b border-white/5 bg-[#0a0a0f]/80 px-8 py-4 backdrop-blur-sm">
+        <div className="sticky top-0 z-10 border-b border-white/5 bg-[#0a0f1a]/65 px-8 py-4 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <p className="text-xs text-white/20">
               {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}

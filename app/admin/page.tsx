@@ -1,34 +1,46 @@
 "use client";
-
+import { useRef, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-function StatCard({
-  label,
-  value,
-  sub,
-  accent = false,
-  prefix = "",
-  suffix = "",
-}: {
-  label: string;
-  value: number | string;
-  sub?: string;
-  accent?: boolean;
-  prefix?: string;
-  suffix?: string;
+// Replace the StatCard component in app/admin/page.tsx with this:
+function StatCard({ label, value, sub, accent = false, prefix = "", suffix = "" }: {
+  label: string; value: number | string; sub?: string;
+  accent?: boolean; prefix?: string; suffix?: string;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [glow, setGlow] = useState({ x: 0, y: 0, opacity: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setGlow({ x: e.clientX - rect.left, y: e.clientY - rect.top, opacity: 1 });
+  };
+
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-6 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04]">
-      {accent && (
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent" />
-      )}
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setGlow((g) => ({ ...g, opacity: 0 }))}
+      className="group relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-6 transition-all duration-300 hover:border-emerald-500/20 hover:bg-white/[0.04]"
+    >
+      {accent && <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent" />}
+      {/* Mouse glow */}
+      <div
+        className="pointer-events-none absolute transition-opacity duration-300"
+        style={{
+          left: glow.x - 80, top: glow.y - 80,
+          width: 160, height: 160, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%)",
+          opacity: glow.opacity,
+        }}
+      />
+      <div className="absolute bottom-0 left-0 h-0.5 w-full origin-left scale-x-0 bg-emerald-500/40 transition-transform duration-500 group-hover:scale-x-100" />
       <p className="mb-3 text-xs font-medium uppercase tracking-widest text-white/30">{label}</p>
       <p className={`text-4xl font-light tabular-nums tracking-tight ${accent ? "text-emerald-400" : "text-white"}`}>
         {prefix}{typeof value === "number" ? value.toLocaleString() : value}{suffix}
       </p>
       {sub && <p className="mt-2 text-xs text-white/30">{sub}</p>}
-      <div className={`absolute bottom-0 left-0 h-0.5 w-full origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100 ${accent ? "bg-emerald-500/40" : "bg-white/10"}`} />
     </div>
   );
 }
