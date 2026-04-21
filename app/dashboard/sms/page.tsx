@@ -80,6 +80,8 @@ export default function SmsPage() {
     );
   }, [allCustomers, customerSearch]);
 
+  const charLimit = 160;
+
   const allSelected =
     filteredCustomers.length > 0 &&
     filteredCustomers.every((c) => selectedIds.has(c._id));
@@ -159,31 +161,75 @@ export default function SmsPage() {
     return true;
   });
 
-  const charLimit = 160;
+  const stats = {
+    totalSent: (history ?? []).filter((h) => h.status === "SENT").length,
+    pending: (pending ?? []).length,
+    failedMessages: (history ?? []).filter((h) => h.status === "FAILED").length,
+    smsUsed: restaurant?.smsUsed ?? 0,
+    smsLimit: restaurant?.smsLimit ?? 5000,
+  };
 
   if (!restaurantId) return null;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">SMS Center</h1>
+      <div>
+        <p className="text-xs uppercase tracking-[0.16em] text-white/28">Communication</p>
+        <h1 className="mt-2 text-3xl font-light tracking-tight text-white">SMS Center</h1>
+        <p className="mt-1 text-sm text-white/42">Manage recovery outreach, approvals, and customer messaging campaigns</p>
+      </div>
 
-      <div className="flex gap-2 border-b border-zinc-800">
+      <div className="grid gap-4 sm:grid-cols-4">
+        <div className="dashboard-surface rounded-2xl px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-white/28">SMS Used</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{stats.smsUsed}</p>
+          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
+            <div
+              className="h-full rounded-full bg-emerald-500/60 transition-all"
+              style={{
+                width: `${Math.min(100, (stats.smsUsed / stats.smsLimit) * 100)}%`,
+              }}
+            />
+          </div>
+          <p className="mt-1 text-xs text-white/40">{stats.smsLimit} total</p>
+        </div>
+
+        <div className="dashboard-surface rounded-2xl px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-white/28">Pending Approval</p>
+          <p className="mt-2 text-2xl font-semibold text-amber-400">{stats.pending}</p>
+          <p className="mt-3 text-xs text-white/40">Messages waiting</p>
+        </div>
+
+        <div className="dashboard-surface rounded-2xl px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-white/28">Sent This Month</p>
+          <p className="mt-2 text-2xl font-semibold text-emerald-400">{stats.totalSent}</p>
+          <p className="mt-3 text-xs text-white/40">Delivered</p>
+        </div>
+
+        <div className="dashboard-surface rounded-2xl px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-white/28">Failed</p>
+          <p className="mt-2 text-2xl font-semibold text-red-400">{stats.failedMessages}</p>
+          <p className="mt-3 text-xs text-white/40">Review needed</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-white/8 bg-white/[0.02] p-1">
         {(["approval", "send", "history"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`border-b-2 px-4 py-2 text-sm font-medium ${
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition-all ${
               tab === t
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-zinc-400 hover:text-white"
+                ? "bg-emerald-500/20 text-emerald-300"
+                : "text-white/60 hover:text-white/80"
             }`}
           >
             {t === "approval" && (
               <>
                 Needs Approval
-                {pending && pending.length > 0 && (
-                  <span className="ml-2 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-400">
-                    {pending.length}
+                {stats.pending > 0 && (
+                  <span className="ml-2 rounded-full bg-amber-500/30 px-2 py-0.5 text-xs text-amber-200">
+                    {stats.pending}
                   </span>
                 )}
               </>
@@ -198,39 +244,42 @@ export default function SmsPage() {
       {tab === "approval" && (
         <div className="space-y-4">
           {pending && pending.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-zinc-800 py-16 text-zinc-400">
-              <span className="text-4xl">✅</span>
-              <p className="mt-2">All clear! No pending apologies.</p>
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-white/8 bg-white/[0.02] py-16">
+              <span className="text-5xl">✅</span>
+              <p className="mt-4 text-lg text-white/60">All clear! No pending apologies</p>
+              <p className="mt-1 text-sm text-white/40">Your recovery workflow is on top of things</p>
             </div>
           )}
           {pending?.map((log) => (
-            <div key={log._id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div key={log._id} className="dashboard-surface rounded-2xl border border-white/8 p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">{log.customerName}</p>
-                  <p className="text-sm text-zinc-400">
-                    Rating: <span className="text-red-400">{log.rating}/5</span>
+                  <p className="font-semibold text-white">{log.customerName}</p>
+                  <p className="mt-1 text-sm text-white/40">
+                    Rating: <span className="text-red-400 font-medium">{log.rating}/5 ⚠️</span>
                   </p>
                 </div>
+                <span className="rounded-full bg-red-500/20 px-3 py-1 text-xs text-red-300">Recovery needed</span>
               </div>
               {editId === log._id ? (
-                <div className="mt-4">
+                <div className="mt-5 space-y-3">
                   <textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                     rows={3}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white"
+                    placeholder="Edit your recovery message..."
+                    className="w-full rounded-xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/12 focus:outline-none"
                   />
-                  <div className="mt-2 flex gap-2">
+                  <div className="flex gap-2">
                     <button
                       onClick={() => handleEditAndSend(log._id)}
-                      className="rounded bg-emerald-500 px-3 py-1.5 text-sm text-white hover:bg-emerald-600"
+                      className="rounded-xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-4 py-2 text-sm font-medium text-slate-950 hover:scale-105 transition-transform"
                     >
-                      Save & Send
+                      ✅ Save & Send
                     </button>
                     <button
                       onClick={() => { setEditId(null); setEditContent(""); }}
-                      className="rounded border border-zinc-600 px-3 py-1.5 text-sm"
+                      className="rounded-xl border border-white/8 bg-white/4 px-4 py-2 text-sm text-white hover:bg-white/6"
                     >
                       Cancel
                     </button>
@@ -238,23 +287,23 @@ export default function SmsPage() {
                 </div>
               ) : (
                 <>
-                  <p className="mt-2 text-sm text-zinc-300">{log.content}</p>
-                  <div className="mt-4 flex gap-2">
+                  <p className="mt-4 text-sm leading-6 text-white/72">{log.content}</p>
+                  <div className="mt-5 flex flex-wrap gap-2">
                     <button
                       onClick={() => handleApprove(log._id)}
-                      className="rounded bg-emerald-500 px-3 py-1.5 text-sm text-white hover:bg-emerald-600"
+                      className="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/30 transition-colors"
                     >
                       ✅ Approve & Send
                     </button>
                     <button
                       onClick={() => { setEditId(log._id); setEditContent(log.content); }}
-                      className="rounded border border-zinc-600 px-3 py-1.5 text-sm hover:bg-zinc-800"
+                      className="rounded-xl border border-white/8 bg-white/4 px-4 py-2 text-sm text-white hover:bg-white/6"
                     >
                       ✏️ Edit & Send
                     </button>
                     <button
                       onClick={() => handleDismiss(log._id)}
-                      className="rounded border border-red-500/50 px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10"
+                      className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300 hover:bg-red-500/20 transition-colors"
                     >
                       ✗ Dismiss
                     </button>
@@ -272,18 +321,18 @@ export default function SmsPage() {
 
           {/* Success result banner */}
           {sendResult && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-              <p className="text-emerald-400">
-                ✅ Sent {sendResult.sentCount} messages successfully.
+            <div className="dashboard-surface rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <p className="text-emerald-300 font-medium">
+                ✅ Successfully sent {sendResult.sentCount} messages
                 {sendResult.failedCount > 0 && (
-                  <span className="ml-2 text-red-400">
-                    {sendResult.failedCount} failed.
+                  <span className="ml-2 text-red-300">
+                    ({sendResult.failedCount} failed)
                   </span>
                 )}
               </p>
               <button
                 onClick={() => setSendResult(null)}
-                className="mt-1 text-xs text-zinc-500 hover:text-zinc-300"
+                className="mt-2 text-xs text-white/40 hover:text-white/60"
               >
                 Dismiss
               </button>
@@ -291,55 +340,53 @@ export default function SmsPage() {
           )}
 
           {/* Step 1: Select customers */}
-          <div>
-            <p className="mb-2 text-sm font-medium text-zinc-400">
-              Step 1: Select customers
-            </p>
+          <div className="dashboard-surface rounded-2xl border border-white/8 p-5">
+            <h3 className="mb-4 text-sm font-medium text-white">Step 1: Select recipients</h3>
 
             <input
               type="search"
               placeholder="Search by name or phone..."
               value={customerSearch}
               onChange={(e) => setCustomerSearch(e.target.value)}
-              className="mb-2 w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none"
+              className="mb-4 w-full rounded-xl border border-white/8 bg-white/4 px-4 py-2 text-sm text-white placeholder:text-white/30 focus:border-white/12 focus:outline-none"
             />
 
-            <div className="overflow-hidden rounded-lg border border-zinc-800">
+            <div className="overflow-hidden rounded-xl border border-white/8">
               {/* Select all header */}
-              <div className="flex items-center gap-3 border-b border-zinc-800 bg-zinc-900/70 px-4 py-2.5">
+              <div className="flex items-center gap-3 border-b border-white/8 bg-white/[0.02] px-4 py-3">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={toggleSelectAll}
                   className="h-4 w-4 accent-blue-500"
                 />
-                <span className="text-sm font-medium text-zinc-300">
+                <span className="text-sm font-medium text-white">
                   {allSelected ? "Deselect all" : "Select all"}
-                  <span className="ml-2 text-zinc-500">
-                    ({filteredCustomers.length} customers)
+                  <span className="ml-2 text-white/40">
+                    ({filteredCustomers.length})
                   </span>
                 </span>
                 {selectedIds.size > 0 && (
-                  <span className="ml-auto rounded-full bg-blue-500/20 px-2 py-0.5 text-xs text-blue-400">
+                  <span className="ml-auto rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs text-emerald-300 font-medium">
                     {selectedIds.size} selected
                   </span>
                 )}
               </div>
 
               {/* Customer list */}
-              <div className="max-h-72 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto">
                 {allCustomers === undefined && (
-                  <p className="px-4 py-6 text-center text-sm text-zinc-500">Loading...</p>
+                  <p className="px-4 py-8 text-center text-sm text-white/40">Loading...</p>
                 )}
                 {filteredCustomers.length === 0 && allCustomers !== undefined && (
-                  <p className="px-4 py-6 text-center text-sm text-zinc-500">No customers found.</p>
+                  <p className="px-4 py-8 text-center text-sm text-white/40">No customers found.</p>
                 )}
                 {filteredCustomers.map((c) => (
                   <div
                     key={c._id}
                     onClick={() => toggleCustomer(c._id)}
-                    className={`flex cursor-pointer items-center gap-3 border-b border-zinc-800/50 px-4 py-3 transition-colors last:border-0 hover:bg-zinc-800/40 ${
-                      selectedIds.has(c._id) ? "bg-blue-500/10" : ""
+                    className={`flex cursor-pointer items-center gap-3 border-b border-white/4 px-4 py-3 transition-colors last:border-0 hover:bg-white/[0.04] ${
+                      selectedIds.has(c._id) ? "bg-emerald-500/10" : ""
                     }`}
                   >
                     <input
@@ -347,23 +394,22 @@ export default function SmsPage() {
                       checked={selectedIds.has(c._id)}
                       onChange={() => toggleCustomer(c._id)}
                       onClick={(e) => e.stopPropagation()}
-                      className="h-4 w-4 accent-blue-500"
+                      className="h-4 w-4 accent-emerald-500"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="truncate text-sm font-medium text-white">{c.name}</p>
-                      <p className="text-xs text-zinc-500">{c.phone}</p>
+                      <p className="text-xs text-white/40">{c.phone}</p>
                     </div>
                     <div className="flex gap-1.5">
                       {c.isLoyal && (
-                        <span className="rounded px-1.5 py-0.5 text-xs bg-emerald-500/20 text-emerald-400">Loyal</span>
+                        <span className="rounded px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-300">Loyal</span>
                       )}
                       {c.isInactive && (
-                        <span className="rounded px-1.5 py-0.5 text-xs bg-amber-500/20 text-amber-400">Inactive</span>
+                        <span className="rounded px-2 py-0.5 text-xs bg-amber-500/20 text-amber-300">Inactive</span>
                       )}
                       {c.isUnhappy && (
-                        <span className="rounded px-1.5 py-0.5 text-xs bg-red-500/20 text-red-400">Unhappy</span>
+                        <span className="rounded px-2 py-0.5 text-xs bg-red-500/20 text-red-300">Unhappy</span>
                       )}
-                      <span className="text-xs text-zinc-500">{c.visitCount} visits</span>
                     </div>
                   </div>
                 ))}
@@ -372,38 +418,39 @@ export default function SmsPage() {
           </div>
 
           {/* Step 2: Compose message */}
-          <div>
-            <p className="mb-2 text-sm font-medium text-zinc-400">
-              Step 2: Compose message
-            </p>
+          <div className="dashboard-surface rounded-2xl border border-white/8 p-5">
+            <h3 className="mb-4 text-sm font-medium text-white">Step 2: Compose message</h3>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Your message... (use [name] for customer's name)"
+              placeholder="Your message here... (use [name] for customer name)"
               rows={4}
-              className="w-full max-w-xl rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white placeholder-zinc-500 focus:outline-none"
+              maxLength={charLimit}
+              className="w-full rounded-xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/12 focus:outline-none"
             />
-            <p className="mt-1 text-sm text-zinc-500">
-              {message.length} / {charLimit} characters
-            </p>
-            <button
-              onClick={() => setShowDealPrompt((v) => !v)}
-              className="mt-2 rounded-lg border border-zinc-600 px-3 py-1.5 text-sm hover:bg-zinc-800"
-            >
-              ✨ Draft with AI
-            </button>
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-xs text-white/40">
+                {message.length} / {charLimit} characters
+              </p>
+              <button
+                onClick={() => setShowDealPrompt((v) => !v)}
+                className="rounded-lg border border-white/8 bg-white/4 px-3 py-1.5 text-xs text-white hover:bg-white/6 transition-colors"
+              >
+                ✨ Draft with AI
+              </button>
+            </div>
             {showDealPrompt && (
-              <div className="mt-2 flex gap-2">
+              <div className="mt-4 flex gap-2">
                 <input
                   type="text"
                   placeholder="Describe your deal (e.g. 20% off lunch this week)"
                   value={dealPrompt}
                   onChange={(e) => setDealPrompt(e.target.value)}
-                  className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white"
+                  className="flex-1 rounded-xl border border-white/8 bg-white/4 px-4 py-2 text-sm text-white placeholder:text-white/30 focus:border-white/12 focus:outline-none"
                 />
                 <button
                   onClick={handleGenerateDeal}
-                  className="rounded bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
+                  className="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/30 transition-colors font-medium"
                 >
                   Generate
                 </button>
@@ -412,31 +459,31 @@ export default function SmsPage() {
           </div>
 
           {/* Step 3: Send */}
-          <div>
-            <p className="mb-2 text-sm font-medium text-zinc-400">
-              Step 3: Preview & Send
-            </p>
-            <p className="text-zinc-400">
-              Sending to{" "}
-              <strong className="text-white">{selectedIds.size}</strong>{" "}
+          <div className="dashboard-surface rounded-2xl border border-white/8 p-5">
+            <h3 className="mb-4 text-sm font-medium text-white">Step 3: Preview & Send</h3>
+            <p className="text-white/60">
+              Ready to send to{" "}
+              <span className="font-semibold text-white">{selectedIds.size}</span>{" "}
               customer{selectedIds.size !== 1 ? "s" : ""}
             </p>
 
             {confirmSend ? (
-              <div className="mt-4">
-                <p className="mb-2 text-amber-400">
-                  Are you sure? This will send {selectedIds.size} SMS message{selectedIds.size !== 1 ? "s" : ""}.
-                </p>
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <p className="text-sm text-amber-300">
+                    ⚠️ Confirm: Send {selectedIds.size} SMS message{selectedIds.size !== 1 ? "s" : ""}?
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={handleSend}
-                    className="rounded bg-emerald-500 px-4 py-2 text-white hover:bg-emerald-600"
+                    className="rounded-xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-4 py-2 text-sm font-medium text-slate-950 hover:scale-105 transition-transform"
                   >
                     Yes, Send Now
                   </button>
                   <button
                     onClick={() => setConfirmSend(false)}
-                    className="rounded border border-zinc-600 px-4 py-2"
+                    className="rounded-xl border border-white/8 bg-white/4 px-4 py-2 text-sm text-white hover:bg-white/6"
                   >
                     Cancel
                   </button>
@@ -446,7 +493,7 @@ export default function SmsPage() {
               <button
                 onClick={() => setConfirmSend(true)}
                 disabled={selectedIds.size === 0 || !message.trim()}
-                className="mt-4 rounded-lg bg-blue-500 px-6 py-2 font-medium text-white hover:bg-blue-600 disabled:opacity-50"
+                className="mt-4 rounded-xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-6 py-2 font-medium text-slate-950 hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100"
               >
                 Send Now
               </button>
@@ -458,65 +505,68 @@ export default function SmsPage() {
       {/* ── HISTORY TAB ── */}
       {tab === "history" && (
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white"
-            >
-              <option value="">All types</option>
-              {["WELCOME", "GOOGLE_REVIEW", "APOLOGY", "DEAL", "BIRTHDAY", "REENGAGEMENT"].map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white"
-            >
-              <option value="">All statuses</option>
-              <option value="SENT">Sent</option>
-              <option value="PENDING_APPROVAL">Pending</option>
-              <option value="FAILED">Failed</option>
-            </select>
+          <div className="dashboard-surface rounded-2xl border border-white/8 p-5">
+            <div className="flex flex-wrap gap-3">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="rounded-xl border border-white/8 bg-white/4 px-3 py-2 text-sm text-white focus:border-white/12 focus:outline-none"
+              >
+                <option value="">All types</option>
+                {["WELCOME", "GOOGLE_REVIEW", "APOLOGY", "DEAL", "BIRTHDAY", "REENGAGEMENT"].map((t) => (
+                  <option key={t} value={t}>{t.replace("_", " ")}</option>
+                ))}
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-xl border border-white/8 bg-white/4 px-3 py-2 text-sm text-white focus:border-white/12 focus:outline-none"
+              >
+                <option value="">All statuses</option>
+                <option value="SENT">Sent</option>
+                <option value="PENDING_APPROVAL">Pending</option>
+                <option value="FAILED">Failed</option>
+              </select>
+            </div>
           </div>
-          <div className="overflow-hidden rounded-lg border border-zinc-800">
+
+          <div className="overflow-hidden rounded-xl border border-white/8">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-900/50">
-                  <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Customer</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Type</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Message</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Sent</th>
+                <tr className="border-b border-white/8 bg-white/[0.02]">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.16em] text-white/40">Customer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.16em] text-white/40">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.16em] text-white/40">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.16em] text-white/40">Message</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.16em] text-white/40">Sent</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredHistory.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-zinc-500">
+                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-white/40">
                       No messages yet.
                     </td>
                   </tr>
                 )}
                 {filteredHistory.map((h) => (
-                  <tr key={h._id} className="border-b border-zinc-800/50 last:border-0 hover:bg-zinc-900/30">
-                    <td className="px-4 py-3 text-sm">{h.customerName}</td>
+                  <tr key={h._id} className="border-b border-white/4 last:border-0 hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3 text-sm text-white font-medium">{h.customerName}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded px-2 py-0.5 text-xs ${typeColors[h.smsType] ?? ""}`}>
-                        {h.smsType}
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${typeColors[h.smsType] ?? ""}`}>
+                        {h.smsType.replace("_", " ")}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded px-2 py-0.5 text-xs ${statusColors[h.status] ?? ""}`}>
-                        {h.status}
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[h.status] ?? ""}`}>
+                        {h.status === "PENDING_APPROVAL" ? "Pending" : h.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 max-w-xs">
-                      <p className="truncate text-sm text-zinc-400">{h.content}</p>
+                      <p className="truncate text-sm text-white/60">{h.content}</p>
                     </td>
-                    <td className="px-4 py-3 text-sm text-zinc-500">
-                      {new Date(h.sentAt).toLocaleString()}
+                    <td className="px-4 py-3 text-sm text-white/40 whitespace-nowrap">
+                      {new Date(h.sentAt).toLocaleDateString()} {new Date(h.sentAt).toLocaleTimeString()}
                     </td>
                   </tr>
                 ))}

@@ -26,6 +26,7 @@ type Screen =
   | "returning"
   | "consent"
   | "returning-confirm"
+  | "bill"
   | "success"
   | "success-returning";
 
@@ -190,6 +191,9 @@ export default function KioskPage() {
   const [staffPinOpen, setStaffPinOpen] = useState(false);
   const [staffPin, setStaffPin] = useState("");
   const [countdown, setCountdown] = useState(5);
+  const [billAmount, setBillAmount] = useState("");
+  const [checkedInCustomerId, setCheckedInCustomerId] = useState<Id<"customers"> | null>(null);
+  const [pointsEarned, setPointsEarned] = useState(0);
   const lastActivityRef = useRef(0);
   const queueRef = useRef<QueuedSubmission[]>([]);
   const [queueCount, setQueueCount] = useState(0);
@@ -203,6 +207,7 @@ export default function KioskPage() {
     slug ? { slug } : "skip"
   );
   const createCustomerMutation = useMutation(api.smsMutations.createCustomer);
+  const addReceiptMutation = useMutation(api.smsMutations.addReceiptForCustomer);
   const connectionState = useConvexConnectionState();
 
   const findCustomer = useQuery(
@@ -231,6 +236,7 @@ export default function KioskPage() {
         setName(""); setPhone(""); setLastFour("");
         setBirthdayMonth(undefined); setBirthdayDay(undefined);
         setConsent(false);
+        setBillAmount(""); setCheckedInCustomerId(null); setPointsEarned(0);
       }
     }, 1000);
     return () => clearInterval(iv);
@@ -302,12 +308,22 @@ export default function KioskPage() {
         optedInSms: opts.optedInSms ?? true,
       };
       try {
-        await createCustomerMutation(payload);
-        setScreen(opts.type === "new" ? "success" : "success-returning");
+        const result = await createCustomerMutation(payload);
+        if (opts.type === "returning" && result.existing && result.customer) {
+          setCheckedInCustomerId(result.customer._id);
+          setScreen("bill");
+        } else {
+          setScreen(opts.type === "new" ? "success" : "success-returning");
+        }
       } catch {
         queueRef.current.push({ ...payload, type: opts.type, optedInSms: opts.optedInSms ?? true } as QueuedSubmission);
         setQueueCount(queueRef.current.length);
-        setScreen(opts.type === "new" ? "success" : "success-returning");
+        if (opts.type === "returning") {
+          // For offline, assume existing and go to bill
+          setScreen("bill");
+        } else {
+          setScreen(opts.type === "new" ? "success" : "success-returning");
+        }
       }
     },
     [createCustomerMutation, restaurant]
@@ -316,7 +332,7 @@ export default function KioskPage() {
   // ── Loading / Error states ────────────────────────────
   if (!slug || restaurant === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
+      <div suppressHydrationWarning={true} className="flex min-h-screen items-center justify-center bg-transparent text-white">
         <p className="text-zinc-500">{!slug ? "Invalid kiosk URL" : "Restaurant not found"}</p>
       </div>
     );
@@ -334,21 +350,30 @@ export default function KioskPage() {
   }
 
   // ── Shared background ─────────────────────────────────
-  const bgStyle = bgImageUrl
-    ? { backgroundImage: `url(${bgImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
-    : undefined;
-
   return (
     <div
-      className="fixed inset-0 overflow-hidden bg-transparent text-white"
-      style={bgStyle}
+      className="fixed inset-0 overflow-y-auto bg-transparent text-white"
       onClick={recordActivity}
       onTouchStart={recordActivity}
     >
-      {/* Dark overlay — richer when bg image is set */}
       <div
-        className={`absolute inset-0 ${bgImageUrl ? "bg-black/60" : "bg-transparent"}`}
-        style={bgImageUrl ? undefined : { backgroundImage: "var(--bg-gradient), var(--bg-grid-pattern)" }}
+        className="absolute inset-0"
+        style={{ backgroundImage: "var(--bg-gradient), var(--bg-grid-pattern)" }}
+      />
+
+      {bgImageUrl && (
+        <div
+          className="absolute inset-0 opacity-25"
+          style={{
+            backgroundImage: `url(${bgImageUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+      )}
+
+      <div
+        className={`absolute inset-0 ${bgImageUrl ? "bg-black/55" : "bg-black/20"}`}
       />
 
       {/* Subtle radial glow using accent color */}
@@ -637,6 +662,50 @@ export default function KioskPage() {
           </GlassCard>
         )}
 
+        {/* BILL AMOUNT */}
+        {screen === "bill" && (
+          <GlassCard>
+            <div className="mb-8 text-center">
+              <h2 className="text-2xl font-bold">Enter Your Bill Amount</h2>
+              <p className="mt-2 text-white/50">
+                To earn loyalty points (1$ = 10 points)
+              </p>
+            </div>
+            <div className="mb-6">
+              <NumericKeypad
+                value={billAmount}
+                onChange={setBillAmount}
+                maxLength={6}
+                placeholder="0.00"
+                accent={accent}
+              />
+            </div>
+            <div className="flex gap-3">
+              <PrimaryButton
+                accent={accent}
+                onClick={async () => {
+                  if (!checkedInCustomerId || !restaurant) return;
+                  const amount = parseFloat(billAmount) || 0;
+                  try {
+                    const result = await addReceiptMutation({
+                      customerId: checkedInCustomerId,
+                      billAmount: amount,
+                      restaurantId: restaurant._id,
+                    });
+                    setPointsEarned(result.pointsEarned);
+                    setScreen("success-returning");
+                  } catch {
+                    setPointsEarned(0);
+                    setScreen("success-returning");
+                  }
+                }}
+              >
+                {billAmount ? `Earn ${Math.round((parseFloat(billAmount) || 0) * 10)} Points →` : "Skip →"}
+              </PrimaryButton>
+            </div>
+          </GlassCard>
+        )}
+
         {/* SUCCESS — NEW */}
         {screen === "success" && (
           <div className="flex w-full max-w-md flex-col items-center gap-6 text-center animate-in fade-in duration-500">
@@ -678,6 +747,11 @@ export default function KioskPage() {
               <p className="mt-3 text-white/50">
                 <span className="font-semibold text-white">{matchedReturningCustomer.points}</span> loyalty points
               </p>
+              {pointsEarned > 0 && (
+                <p className="mt-1 text-sm" style={{ color: accent }}>
+                  +{pointsEarned} points earned this visit! 🎉
+                </p>
+              )}
             </div>
             <div className="mt-2 h-1 w-48 overflow-hidden rounded-full bg-white/10">
               <div

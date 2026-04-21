@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import { CustomerDrawer } from "@/components/CustomerDrawer";
 
 function formatTimeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -15,8 +17,28 @@ function formatTimeAgo(ts: number) {
   return new Date(ts).toLocaleDateString();
 }
 
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function statusLabel(customer: {
+  isLoyal: boolean;
+  isInactive: boolean;
+  isUnhappy: boolean;
+}) {
+  if (customer.isUnhappy) return { text: "Needs recovery", tone: "bg-red-500/15 text-red-300" };
+  if (customer.isLoyal) return { text: "Loyal", tone: "bg-emerald-500/15 text-emerald-300" };
+  if (customer.isInactive) return { text: "Inactive", tone: "bg-amber-500/15 text-amber-200" };
+  return { text: "Active", tone: "bg-blue-500/15 text-blue-300" };
+}
+
 export default function CustomersPage() {
   const restaurantId = useRestaurantId();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [drawerId, setDrawerId] = useState<Id<"customers"> | null>(null);
 
@@ -26,251 +48,171 @@ export default function CustomersPage() {
   );
   const smsHistory = useQuery(
     api.queries.getCustomerSmsHistory,
-    restaurantId && drawerId
-      ? { restaurantId, customerId: drawerId }
-      : "skip"
+    restaurantId && drawerId ? { restaurantId, customerId: drawerId } : "skip"
   );
+  const receiptHistory = useQuery(
+    api.queries.getCustomerReceiptHistory,
+    restaurantId && drawerId ? { restaurantId, customerId: drawerId } : "skip"
+  );
+
+  useEffect(() => {
+    const customerId = searchParams.get("customerId");
+    if (!customerId || !customers) return;
+    const match = customers.find((customer) => customer._id === customerId);
+    if (match) {
+      setDrawerId(match._id);
+    }
+  }, [customers, searchParams]);
 
   const filtered = useMemo(() => {
     if (!customers) return [];
     const q = search.toLowerCase();
     return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) || c.phone.includes(q)
+      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q)
     );
   }, [customers, search]);
 
   const selected = drawerId && customers?.find((c) => c._id === drawerId);
 
   if (!restaurantId) return null;
+
   if (customers === undefined) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-zinc-500">Loading…</p>
+      <div className="flex items-center justify-center py-32">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-emerald-500/60" />
+          <p className="text-xs text-white/20">Loading customers...</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Customers</h1>
-      <input
-        type="search"
-        placeholder="Search by name or phone..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-      />
+  const loyalCount = filtered.filter((c) => c.isLoyal).length;
+  const atRiskCount = filtered.filter((c) => c.isUnhappy).length;
+  const totalRevenue = filtered.reduce((sum, customer) => sum + customer.totalSpent, 0);
 
-      <div className="overflow-hidden rounded-lg border border-zinc-800">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-900/50">
-              <th className="w-1 px-4 py-3 text-left text-sm font-medium text-zinc-400">Name</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Phone</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Visits</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Points</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Last Activity</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Rating</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((c) => {
-              const border =
-                c.isUnhappy
-                  ? "border-l-4 border-l-red-500"
-                  : c.isInactive
-                    ? "border-l-4 border-l-amber-500"
-                    : c.isLoyal
-                      ? "border-l-4 border-l-emerald-500"
-                      : "";
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+            Customer memory
+          </p>
+          <h1 className="mt-2 text-3xl font-light tracking-tight text-white">
+            Customers
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-7 text-white/42">
+            Review visit count, lifetime spend, loyalty points, and guest sentiment
+            before launching campaigns or approving recovery outreach.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "Customers", value: filtered.length.toString() },
+            { label: "Loyal", value: loyalCount.toString() },
+            { label: "Tracked spend", value: formatCurrency(totalRevenue) },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="dashboard-surface rounded-2xl px-4 py-3 text-center"
+            >
+              <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+                {item.label}
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-white">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="dashboard-surface rounded-[1.75rem] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/76">Guest directory</p>
+            <p className="mt-1 text-xs text-white/34">
+              Click any customer to open visit history, loyalty points, SMS history,
+              and bill-based receipt details.
+            </p>
+          </div>
+          <input
+            type="search"
+            placeholder="Search by name or phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full max-w-md rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white placeholder:text-white/24 focus:border-white/14 focus:outline-none"
+          />
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-white/7">
+          <div className="hidden grid-cols-[1.2fr_0.95fr_0.65fr_0.75fr_0.95fr_0.75fr_0.95fr] gap-3 border-b border-white/7 bg-white/[0.03] px-4 py-3 text-xs uppercase tracking-[0.16em] text-white/28 lg:grid">
+            <span>Name</span>
+            <span>Phone</span>
+            <span>Visits</span>
+            <span>Points</span>
+            <span>Total spent</span>
+            <span>Rating</span>
+            <span>Status</span>
+          </div>
+
+          <div className="divide-y divide-white/6">
+            {filtered.map((customer) => {
+              const status = statusLabel(customer);
               return (
-                <tr
-                  key={c._id}
-                  onClick={() => setDrawerId(c._id)}
-                  className={`cursor-pointer border-b border-zinc-800 hover:bg-zinc-800/30 ${border}`}
+                <button
+                  key={customer._id}
+                  type="button"
+                  onClick={() => setDrawerId(customer._id)}
+                  className="grid w-full gap-3 px-4 py-4 text-left transition-colors hover:bg-white/[0.03] lg:grid-cols-[1.2fr_0.95fr_0.65fr_0.75fr_0.95fr_0.75fr_0.95fr]"
                 >
-                  <td className="px-4 py-3 font-medium">{c.name}</td>
-                  <td className="px-4 py-3 text-zinc-400">{c.phone}</td>
-                  <td className="px-4 py-3">{c.visitCount}</td>
-                  <td className="px-4 py-3">{c.points}</td>
-                  <td className="px-4 py-3 text-zinc-400">
-                    {formatTimeAgo(c.lastVisitAt ?? c.createdAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {c.latestRating !== undefined ? `${c.latestRating}/5` : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {c.isLoyal && (
-                      <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-400">
-                        Loyal
-                      </span>
-                    )}
-                    {c.isInactive && !c.isLoyal && (
-                      <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">
-                        Inactive
-                      </span>
-                    )}
-                    {c.isUnhappy && (
-                      <span className="rounded bg-red-500/20 px-2 py-0.5 text-xs text-red-400">
-                        Unhappy
-                      </span>
-                    )}
-                  </td>
-                </tr>
+                  <div>
+                    <p className="text-sm font-medium text-white underline-offset-4 hover:underline">
+                      {customer.name}
+                    </p>
+                    <p className="mt-1 text-xs text-white/28 lg:hidden">
+                      {customer.phone}
+                    </p>
+                  </div>
+                  <p className="hidden text-sm text-white/48 lg:block">
+                    {customer.phone}
+                  </p>
+                  <p className="text-sm text-white/68">{customer.visitCount}</p>
+                  <p className="text-sm text-white/68">{customer.points}</p>
+                  <p className="text-sm text-white/68">
+                    {formatCurrency(customer.totalSpent)}
+                  </p>
+                  <p className="text-sm text-white/68">
+                    {customer.latestRating !== undefined
+                      ? `${customer.latestRating}/5`
+                      : "-"}
+                  </p>
+                  <div>
+                    <span className={`rounded-full px-2.5 py-1 text-xs ${status.tone}`}>
+                      {status.text}
+                    </span>
+                  </div>
+                </button>
               );
             })}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        <div className="mt-4 text-xs text-white/26">
+          Points rule: 1 USD = 10 loyalty points
+        </div>
       </div>
 
       {selected && (
         <CustomerDrawer
           customer={selected}
           smsHistory={smsHistory ?? []}
+          receiptHistory={receiptHistory ?? []}
           restaurantId={restaurantId}
           onClose={() => setDrawerId(null)}
+          isLoadingSms={smsHistory === undefined}
+          isLoadingReceipts={receiptHistory === undefined}
         />
       )}
-    </div>
-  );
-}
-
-function CustomerDrawer({
-  customer,
-  smsHistory,
-  restaurantId,
-  onClose,
-}: {
-  customer: {
-    _id: Id<"customers">;
-    name: string;
-    phone: string;
-    points: number;
-    visitCount: number;
-    birthdayMonth?: number;
-    birthdayDay?: number;
-    visitNote?: string;
-  };
-  smsHistory: { content: string; sentAt: number; smsType: string; customerId?: Id<"customers"> }[];
-  restaurantId: Id<"restaurants">;
-  onClose: () => void;
-}) {
-  const [visitNote, setVisitNote] = useState(customer.visitNote ?? "");
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const updateNote = useMutation(api.dashboardMutations.updateCustomerVisitNote);
-  const deleteCustomer = useMutation(api.dashboardMutations.deleteCustomer);
-
-  const handleSaveNote = () => {
-    updateNote({ customerId: customer._id, restaurantId, visitNote });
-  };
-
-  const handleDelete = () => {
-    deleteCustomer({ customerId: customer._id, restaurantId });
-    onClose();
-  };
-
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative flex w-full max-w-md flex-col bg-zinc-900 shadow-xl">
-        <div className="border-b border-zinc-800 p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{customer.name}</h2>
-            <button
-              onClick={onClose}
-              className="text-zinc-400 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
-          <p className="text-zinc-400">{customer.phone}</p>
-          <div className="mt-2 flex gap-2 text-sm">
-            <span>{customer.points} pts</span>
-            <span>•</span>
-            <span>{customer.visitCount} visits</span>
-            {customer.birthdayMonth != null && customer.birthdayDay != null && (
-              <span className="text-pink-400">
-                🎂 {months[customer.birthdayMonth - 1]} {customer.birthdayDay}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto p-4">
-          <h3 className="mb-2 text-sm font-medium text-zinc-400">SMS History</h3>
-          <div className="space-y-2">
-            {smsHistory.length === 0 ? (
-              <p className="text-sm text-zinc-500">No messages yet</p>
-            ) : (
-              smsHistory.map((msg, i) => (
-                <div
-                  key={i}
-                  className="ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-500/30 px-3 py-2 text-sm"
-                >
-                  {msg.content}
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {new Date(msg.sentAt).toLocaleString()} • {msg.smsType}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-zinc-400">
-              Add Visit Note
-            </label>
-            <textarea
-              value={visitNote}
-              onChange={(e) => setVisitNote(e.target.value)}
-              rows={2}
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white"
-            />
-            <button
-              onClick={handleSaveNote}
-              className="mt-2 rounded-lg bg-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-600"
-            >
-              Save Note
-            </button>
-          </div>
-        </div>
-
-        <div className="border-t border-zinc-800 p-4">
-          {showConfirm ? (
-            <div>
-              <p className="mb-2 text-sm text-zinc-400">
-                Remove this customer? This cannot be undone.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600"
-                >
-                  Remove Customer
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="text-sm text-red-400 hover:text-red-300"
-            >
-              Remove Customer
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

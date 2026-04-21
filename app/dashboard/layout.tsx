@@ -6,10 +6,10 @@ import { SignOutButton } from "@clerk/nextjs";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: "🏠" },
-  { href: "/dashboard/customers", label: "Customers", icon: "👥" },
-  { href: "/dashboard/sms", label: "SMS Center", icon: "📲" },
-  { href: "/dashboard/settings", label: "Settings", icon: "⚙️" },
+  { href: "/dashboard", label: "Overview", badge: "OV" },
+  { href: "/dashboard/customers", label: "Customers", badge: "CU" },
+  { href: "/dashboard/sms", label: "SMS Center", badge: "SM" },
+  { href: "/dashboard/settings", label: "Settings", badge: "SE" },
 ];
 
 export default function DashboardLayout({
@@ -22,47 +22,102 @@ export default function DashboardLayout({
 
   if (!restaurantId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
-        <p className="text-zinc-400">Loading…</p>
+      <div suppressHydrationWarning={true} className="flex min-h-screen items-center justify-center bg-transparent text-white">
+        <p className="text-zinc-400">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-transparent text-white">
-      <aside className="flex w-56 flex-col border-r border-zinc-800 bg-[#0d0d14]/80 backdrop-blur">
-        <div className="border-b border-zinc-800 p-4">
-          <h1 className="font-semibold text-white">ReviewPilot AI</h1>
-          <p className="text-xs text-zinc-500">Restaurant Dashboard</p>
-        </div>
-        <nav className="flex-1 space-y-0.5 p-2">
-          {nav.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  active
-                    ? "bg-zinc-800 text-white"
-                    : "text-zinc-400 hover:bg-zinc-800/50 hover:text-white"
-                }`}
-              >
-                <span>{item.icon}</span>
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="border-t border-zinc-800 p-2">
-          <SignOutButton>
-            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white">
-              Sign out
-            </button>
-          </SignOutButton>
+    <div className="min-h-screen bg-transparent text-white lg:grid lg:grid-cols-[280px_1fr]">
+      <aside className="border-b border-white/6 bg-[#07111d]/82 px-4 py-4 backdrop-blur-xl lg:min-h-screen lg:border-b-0 lg:border-r">
+        <div className="dashboard-surface rounded-[1.75rem] p-4">
+          <div className="border-b border-white/6 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] text-sm font-semibold text-slate-950">
+                RP
+              </div>
+              <div>
+                <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-white/90">
+                  ReviewPilot
+                </p>
+                <p className="text-xs text-white/35">Client workspace</p>
+              </div>
+            </div>
+          </div>
+
+          <nav className="mt-4 space-y-2">
+            {nav.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-all ${
+                    active
+                      ? "bg-white/8 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                      : "text-white/50 hover:bg-white/5 hover:text-white/80"
+                  }`}
+                >
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl border text-[11px] font-semibold tracking-[0.14em] ${
+                      active
+                        ? "border-emerald-300/30 bg-emerald-300/12 text-emerald-200"
+                        : "border-white/8 bg-white/4 text-white/35"
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                  <span>{item.label}</span>
+                  {active && (
+                    <span className="ml-auto h-2 w-2 rounded-full bg-emerald-300" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="mt-6 rounded-2xl border border-white/7 bg-white/4 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-white/30">
+              Daily focus
+            </p>
+            <p className="mt-2 text-sm leading-7 text-white/58">
+              Check approvals, monitor SMS usage, and review customer activity in
+              one pass.
+            </p>
+          </div>
+
+          <div className="mt-4 border-t border-white/6 pt-4">
+            <SignOutButton>
+              <button className="flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white/60 hover:bg-white/7 hover:text-white">
+                Sign out
+                <span className="text-white/30">Exit</span>
+              </button>
+            </SignOutButton>
+          </div>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto p-6">{children}</main>
+
+      <main className="min-w-0">
+        <div className="sticky top-0 z-20 border-b border-white/6 bg-[#08111d]/62 px-5 py-4 backdrop-blur-xl sm:px-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+                ReviewPilot workspace
+              </p>
+              <p className="mt-1 text-sm text-white/52">
+                A calmer place to manage review growth, recovery, and retention
+              </p>
+            </div>
+            <div className="hidden items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-200 sm:flex">
+              <span className="h-2 w-2 rounded-full bg-emerald-300" />
+              Live data
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-6 sm:px-6">{children}</div>
+      </main>
     </div>
   );
 }

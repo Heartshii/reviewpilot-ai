@@ -230,8 +230,12 @@ export const createCustomer = mutation({
     birthdayMonth: v.optional(v.number()),
     birthdayDay: v.optional(v.number()),
     optedInSms: v.boolean(),
+    billAmount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const billAmount = Math.max(0, args.billAmount ?? 0);
+    const pointsEarned = Math.round(billAmount * 10);
+
     const existing = await ctx.db
       .query("customers")
       .withIndex("by_restaurant_phone", (q) =>
@@ -243,7 +247,20 @@ export const createCustomer = mutation({
       await ctx.db.patch(existing._id, {
         visitCount: existing.visitCount + 1,
         lastVisitAt: Date.now(),
+        points: existing.points + pointsEarned,
       });
+
+      if (billAmount > 0) {
+        await ctx.db.insert("receipts", {
+          billAmount,
+          pointsEarned,
+          status: "APPROVED",
+          customerId: existing._id,
+          restaurantId: args.restaurantId,
+          submittedAt: Date.now(),
+        });
+      }
+
       const updated = await ctx.db.get(existing._id);
       return { existing: true, customer: updated };
     }
@@ -254,11 +271,23 @@ export const createCustomer = mutation({
       restaurantId: args.restaurantId,
       birthdayMonth: args.birthdayMonth,
       birthdayDay: args.birthdayDay,
-      points: 0,
+      points: pointsEarned,
       visitCount: 1,
       optedInSms: args.optedInSms,
       createdAt: Date.now(),
+      lastVisitAt: Date.now(),
     });
+
+    if (billAmount > 0) {
+      await ctx.db.insert("receipts", {
+        billAmount,
+        pointsEarned,
+        status: "APPROVED",
+        customerId,
+        restaurantId: args.restaurantId,
+        submittedAt: Date.now(),
+      });
+    }
 
     await ctx.scheduler.runAfter(
       60 * 60 * 1000,
@@ -268,6 +297,36 @@ export const createCustomer = mutation({
 
     const customer = await ctx.db.get(customerId);
     return { existing: false, customer };
+  },
+});
+
+export const addReceiptForCustomer = mutation({
+  args: {
+    customerId: v.id("customers"),
+    billAmount: v.number(),
+    restaurantId: v.id("restaurants"),
+  },
+  handler: async (ctx, { customerId, billAmount, restaurantId }) => {
+    const billAmountClean = Math.max(0, billAmount);
+    const pointsEarned = Math.round(billAmountClean * 10);
+
+    const customer = await ctx.db.get(customerId);
+    if (!customer) throw new Error("Customer not found");
+
+    await ctx.db.patch(customerId, {
+      points: customer.points + pointsEarned,
+    });
+
+    await ctx.db.insert("receipts", {
+      billAmount: billAmountClean,
+      pointsEarned,
+      status: "APPROVED",
+      customerId,
+      restaurantId,
+      submittedAt: Date.now(),
+    });
+
+    return { pointsEarned };
   },
 });
 

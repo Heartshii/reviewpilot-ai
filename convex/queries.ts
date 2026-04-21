@@ -181,13 +181,16 @@ export const getRecentActivity = query({
     const result = await Promise.all(
       logs.map(async (log) => {
         let customerName = "—";
+        let visitCount = 0;
         if (log.customerId) {
           const c = await ctx.db.get(log.customerId);
           customerName = c?.name ?? "—";
+          visitCount = c?.visitCount ?? 0;
         }
         return {
           ...log,
           customerName,
+          visitCount,
         };
       })
     );
@@ -261,6 +264,10 @@ export const getCustomers = query({
       .query("feedback")
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
       .collect();
+    const receipts = await ctx.db
+      .query("receipts")
+      .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+      .collect();
 
     const latestFeedbackByCustomer = new Map<
       string,
@@ -279,23 +286,61 @@ export const getCustomers = query({
     }
 
     const sixtyDays = sixtyDaysAgo();
+    const receiptsByCustomer = new Map<string, { totalSpent: number; lastBillAmount?: number }>();
+    for (const receipt of receipts) {
+      const key = receipt.customerId;
+      const current = receiptsByCustomer.get(key) ?? { totalSpent: 0 };
+      receiptsByCustomer.set(key, {
+        totalSpent: current.totalSpent + receipt.billAmount,
+        lastBillAmount: receipt.billAmount,
+      });
+    }
 
     return customers
       .map((c) => {
         const latest = latestFeedbackByCustomer.get(c._id);
+        const receiptSummary = receiptsByCustomer.get(c._id) ?? { totalSpent: 0 };
         const latestRating = latest?.rating;
         const isLoyal = c.visitCount >= 5;
-        const isInactive = c.createdAt < sixtyDays;
+        const lastVisit = c.lastVisitAt ?? c.createdAt;
+        const isInactive = lastVisit < sixtyDays;
         const isUnhappy = latestRating !== undefined && latestRating <= 3;
         return {
           ...c,
           latestRating,
+          totalSpent: receiptSummary.totalSpent,
+          lastBillAmount: receiptSummary.lastBillAmount,
           isLoyal,
           isInactive,
           isUnhappy,
         };
       })
       .sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+export const getCustomerReceiptHistory = query({
+  args: {
+    customerId: v.id("customers"),
+    restaurantId: v.id("restaurants"),
+  },
+  handler: async (ctx, { customerId, restaurantId }) => {
+    const customer = await ctx.db.get(customerId);
+    if (!customer || customer.restaurantId !== restaurantId) {
+      return [];
+    }
+
+    const receipts = await ctx.db
+      .query("receipts")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("restaurantId"), restaurantId),
+          q.eq(q.field("customerId"), customerId)
+        )
+      )
+      .collect();
+
+    return receipts.sort((a, b) => b.submittedAt - a.submittedAt);
   },
 });
 

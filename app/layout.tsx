@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -28,9 +28,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "ReviewPilot AI",
-  description: "Turn every restaurant visit into a 5-star Google review",
+  description:
+    "ReviewPilot AI helps location-based businesses recover unhappy guests, grow reviews, and drive repeat visits with kiosk and SMS automation.",
 };
 
 export default function RootLayout({
@@ -40,9 +46,10 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased relative`}
+          suppressHydrationWarning
+          className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} relative antialiased`}
         >
           <div
             className="premium-background-layer"
