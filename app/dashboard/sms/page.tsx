@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/convex/_generated/api";
@@ -24,8 +25,14 @@ const statusColors: Record<string, string> = {
 
 export default function SmsPage() {
   const restaurantId = useRestaurantId();
+  const searchParams = useSearchParams();
   const { userId } = useAuth();
-  const [tab, setTab] = useState<"approval" | "send" | "history">("approval");
+  const tabParam = searchParams.get("tab");
+  const initialTab: "approval" | "send" | "history" =
+    tabParam === "approval" || tabParam === "send" || tabParam === "history"
+      ? tabParam
+      : "approval";
+  const [tab, setTab] = useState<"approval" | "send" | "history">(initialTab);
 
   // Customer selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -43,8 +50,12 @@ export default function SmsPage() {
   const [editContent, setEditContent] = useState("");
 
   // History tab state
-  const [typeFilter, setTypeFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>(
+    searchParams.get("type") ?? ""
+  );
+  const [statusFilter, setStatusFilter] = useState<string>(
+    searchParams.get("status") ?? ""
+  );
 
   const pending = useQuery(
     api.queries.getPendingApprovals,
@@ -180,7 +191,15 @@ export default function SmsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">
-        <div className="dashboard-surface rounded-2xl px-4 py-3">
+        <button
+          type="button"
+          onClick={() => {
+            setTab("history");
+            setStatusFilter("");
+            setTypeFilter("");
+          }}
+          className="dashboard-surface rounded-2xl px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-emerald-300/20"
+        >
           <p className="text-xs uppercase tracking-[0.16em] text-white/28">SMS Used</p>
           <p className="mt-2 text-2xl font-semibold text-white">{stats.smsUsed}</p>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
@@ -192,25 +211,45 @@ export default function SmsPage() {
             />
           </div>
           <p className="mt-1 text-xs text-white/40">{stats.smsLimit} total</p>
-        </div>
+        </button>
 
-        <div className="dashboard-surface rounded-2xl px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setTab("approval")}
+          className="dashboard-surface rounded-2xl px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-amber-300/20"
+        >
           <p className="text-xs uppercase tracking-[0.16em] text-white/28">Pending Approval</p>
           <p className="mt-2 text-2xl font-semibold text-amber-400">{stats.pending}</p>
           <p className="mt-3 text-xs text-white/40">Messages waiting</p>
-        </div>
+        </button>
 
-        <div className="dashboard-surface rounded-2xl px-4 py-3">
+        <button
+          type="button"
+          onClick={() => {
+            setTab("history");
+            setStatusFilter("SENT");
+            setTypeFilter("");
+          }}
+          className="dashboard-surface rounded-2xl px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-emerald-300/20"
+        >
           <p className="text-xs uppercase tracking-[0.16em] text-white/28">Sent This Month</p>
           <p className="mt-2 text-2xl font-semibold text-emerald-400">{stats.totalSent}</p>
           <p className="mt-3 text-xs text-white/40">Delivered</p>
-        </div>
+        </button>
 
-        <div className="dashboard-surface rounded-2xl px-4 py-3">
+        <button
+          type="button"
+          onClick={() => {
+            setTab("history");
+            setStatusFilter("FAILED");
+            setTypeFilter("");
+          }}
+          className="dashboard-surface rounded-2xl px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-red-300/20"
+        >
           <p className="text-xs uppercase tracking-[0.16em] text-white/28">Failed</p>
           <p className="mt-2 text-2xl font-semibold text-red-400">{stats.failedMessages}</p>
           <p className="mt-3 text-xs text-white/40">Review needed</p>
-        </div>
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-2 rounded-2xl border border-white/8 bg-white/[0.02] p-1">
@@ -531,7 +570,8 @@ export default function SmsPage() {
           </div>
 
           <div className="overflow-hidden rounded-xl border border-white/8">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[880px]">
               <thead>
                 <tr className="border-b border-white/8 bg-white/[0.02]">
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.16em] text-white/40">Customer</th>
@@ -572,6 +612,7 @@ export default function SmsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

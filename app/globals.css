@@ -77,6 +77,21 @@ button {
     transform 180ms ease;
 }
 
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.8);
+  outline-offset: 2px;
+}
+
+select,
+option {
+  background-color: #0b1220;
+  color: #f8fafc;
+}
+
 .page-shell {
   width: min(1200px, calc(100vw - 2rem));
   margin-inline: auto;
@@ -139,6 +154,46 @@ button {
   height: 12rem;
   background: radial-gradient(circle, rgba(52, 211, 153, 0.14), transparent 70%);
   pointer-events: none;
+}
+
+.animate-rise-in {
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  animation: rise-in 560ms cubic-bezier(0.2, 0.65, 0.2, 1) forwards;
+}
+
+.feature-glow-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-glow-card::before {
+  content: "";
+  position: absolute;
+  inset: -20% auto auto -25%;
+  width: 11rem;
+  height: 11rem;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.18), transparent 70%);
+  opacity: 0;
+  transition: opacity 260ms ease;
+  pointer-events: none;
+}
+
+.feature-glow-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -20% -45% auto;
+  width: 13rem;
+  height: 13rem;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 72%);
+  opacity: 0;
+  transition: opacity 260ms ease;
+  pointer-events: none;
+}
+
+.feature-glow-card:hover::before,
+.feature-glow-card:hover::after {
+  opacity: 1;
 }
 
 .spotlight-border {
@@ -236,5 +291,16 @@ button {
   100% {
     transform: translate3d(48px, -100px, 0);
     opacity: 0;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

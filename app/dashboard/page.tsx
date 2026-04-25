@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useQuery } from "convex/react";
 import { useRef, useState } from "react";
 import { api } from "@/convex/_generated/api";
-import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { CustomerDrawer } from "@/components/CustomerDrawer";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 function Stars({ rating }: { rating: number }) {
   const full = Math.floor(rating);
@@ -14,19 +14,21 @@ function Stars({ rating }: { rating: number }) {
 
   return (
     <span className="flex items-center gap-0.5 text-amber-400">
-      {Array.from({ length: 5 }, (_, i) => (
-        <span key={i}>{i < full ? "★" : i === full && hasHalf ? "½" : "☆"}</span>
+      {Array.from({ length: 5 }, (_, index) => (
+        <span key={index}>
+          {index < full ? "\u2605" : index === full && hasHalf ? "\u00BD" : "\u2606"}
+        </span>
       ))}
     </span>
   );
 }
 
 function formatTimeAgo(ts: number) {
-  const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return "Just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
+  const seconds = Math.floor((Date.now() - ts) / 1000);
+  if (seconds < 60) return "Just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
   return new Date(ts).toLocaleDateString();
 }
 
@@ -41,11 +43,9 @@ const typeColors: Record<string, string> = {
 
 function GlowCard({
   children,
-  className = "",
   href,
 }: {
   children: React.ReactNode;
-  className?: string;
   href?: string;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -61,14 +61,14 @@ function GlowCard({
     });
   };
 
-  const handleMouseLeave = () => setGlow((g) => ({ ...g, opacity: 0 }));
-
   const inner = (
     <div
       ref={cardRef}
       onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className={`dashboard-surface group relative overflow-hidden rounded-[1.75rem] p-6 transition-all duration-300 hover:border-emerald-500/20 hover:bg-white/[0.04] ${href ? "cursor-pointer" : ""} ${className}`}
+      onMouseLeave={() => setGlow((prev) => ({ ...prev, opacity: 0 }))}
+      className={`group relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm transition-all duration-300 hover:border-emerald-500/20 hover:bg-white/[0.04] ${
+        href ? "cursor-pointer" : ""
+      }`}
     >
       <div
         className="pointer-events-none absolute transition-opacity duration-300"
@@ -88,15 +88,8 @@ function GlowCard({
     </div>
   );
 
-  if (href) {
-    return (
-      <Link href={href} className="block">
-        {inner}
-      </Link>
-    );
-  }
-
-  return inner;
+  if (!href) return inner;
+  return <Link href={href}>{inner}</Link>;
 }
 
 export default function DashboardPage() {
@@ -114,7 +107,6 @@ export default function DashboardPage() {
     restaurantId ? { restaurantId } : "skip"
   );
   const [drawerId, setDrawerId] = useState<Id<"customers"> | null>(null);
-  const [showAllActivity, setShowAllActivity] = useState(false);
   const smsHistory = useQuery(
     api.queries.getCustomerSmsHistory,
     restaurantId && drawerId ? { restaurantId, customerId: drawerId } : "skip"
@@ -137,47 +129,92 @@ export default function DashboardPage() {
     );
   }
 
+  const insights = [
+    ...(stats.pendingApprovals > 0
+      ? [
+          {
+            icon: "\u26A0",
+            text: `${stats.pendingApprovals} customers had a negative experience this week`,
+            tone: "border-red-500/20 bg-red-500/10 text-red-300",
+          },
+        ]
+      : []),
+    ...(stats.avgRatingThisWeek < 4 && stats.avgRatingThisWeek > 0
+      ? [
+          {
+            icon: "\uD83D\uDCC9",
+            text: `Rating dipped to ${stats.avgRatingThisWeek.toFixed(1)} \u2014 check recent feedback`,
+            tone: "border-amber-500/20 bg-amber-500/10 text-amber-200",
+          },
+        ]
+      : []),
+    ...(stats.avgRatingThisWeek >= 4
+      ? [
+          {
+            icon: "\u2726",
+            text: `Strong week \u2014 ${stats.avgRatingThisWeek.toFixed(1)}\u2605 average rating`,
+            tone: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+          },
+        ]
+      : []),
+    ...(stats.customersChangeThisWeek > 0
+      ? [
+          {
+            icon: "\u2191",
+            text: `${stats.customersChangeThisWeek} new customers joined this week`,
+            tone: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+          },
+        ]
+      : []),
+    ...(stats.smsSentThisMonth > 0
+      ? [
+          {
+            icon: "\uD83D\uDCF2",
+            text: `${stats.smsSentThisMonth} SMS sent \u2014 review funnel is active`,
+            tone: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+          },
+        ]
+      : []),
+    {
+      icon: "\uD83D\uDCA1",
+      text: "Tip: Respond to negative feedback within 24hrs to recover the customer",
+      tone: "border-white/10 bg-white/[0.04] text-white/70",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-light tracking-tight text-white">
-          Dashboard
-        </h1>
+        <h1 className="text-3xl font-light tracking-tight text-white">Dashboard</h1>
         <p className="mt-1 text-sm text-white/30">
           Your restaurant performance at a glance
         </p>
       </div>
 
       {stats.pendingApprovals > 0 && (
-        <div className="dashboard-surface flex items-center justify-between rounded-[1.75rem] border-red-500/20 bg-red-500/6 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="h-2 w-2 animate-pulse rounded-full bg-red-400" />
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4">
+          <div className="flex items-center justify-between gap-3">
             <span className="text-sm text-red-300">
               <span className="font-semibold">{stats.pendingApprovals}</span>{" "}
               {stats.pendingApprovals === 1
                 ? "apology is waiting for approval"
                 : "apologies are waiting for approval"}
             </span>
+            <Link
+              href="/dashboard/reviews"
+              className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-300"
+            >
+              Review now
+            </Link>
           </div>
-          <Link
-            href="/dashboard/sms"
-            className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20"
-          >
-            Review now
-          </Link>
         </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <GlowCard href="/dashboard/customers">
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-widest text-white/30">
-              Total Customers
-            </p>
-            <span className="text-xs text-emerald-500/50 opacity-0 transition-opacity group-hover:opacity-100">
-              View all
-            </span>
-          </div>
+          <p className="text-xs font-medium uppercase tracking-widest text-white/30">
+            Total Customers
+          </p>
           <p className="mt-3 text-4xl font-light tabular-nums text-white">
             {stats.totalCustomers}
           </p>
@@ -189,40 +226,19 @@ export default function DashboardPage() {
         </GlowCard>
 
         <GlowCard href="/dashboard/sms">
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-widest text-white/30">
-              SMS This Month
-            </p>
-            <span className="text-xs text-emerald-500/50 opacity-0 transition-opacity group-hover:opacity-100">
-              History
-            </span>
-          </div>
+          <p className="text-xs font-medium uppercase tracking-widest text-white/30">
+            SMS This Month
+          </p>
           <p className="mt-3 text-4xl font-light tabular-nums text-white">
             {stats.smsSentThisMonth}
             <span className="ml-1 text-lg text-white/20">/ {stats.smsLimit}</span>
           </p>
-          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
-            <div
-              className="h-full rounded-full bg-emerald-500/60 transition-all"
-              style={{
-                width: `${Math.min(
-                  100,
-                  (stats.smsSentThisMonth / stats.smsLimit) * 100
-                )}%`,
-              }}
-            />
-          </div>
         </GlowCard>
 
-        <GlowCard href="/dashboard/customers">
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-widest text-white/30">
-              Avg Rating
-            </p>
-            <span className="text-xs text-emerald-500/50 opacity-0 transition-opacity group-hover:opacity-100">
-              See history
-            </span>
-          </div>
+        <GlowCard href="/dashboard/reviews">
+          <p className="text-xs font-medium uppercase tracking-widest text-white/30">
+            Avg Rating
+          </p>
           <div className="mt-3">
             {stats.avgRatingThisWeek > 0 ? (
               <>
@@ -240,15 +256,10 @@ export default function DashboardPage() {
           <p className="mt-1 text-xs text-white/20">This week</p>
         </GlowCard>
 
-        <GlowCard href="/dashboard/sms">
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-widest text-white/30">
-              Google Links
-            </p>
-            <span className="text-xs text-emerald-500/50 opacity-0 transition-opacity group-hover:opacity-100">
-              History
-            </span>
-          </div>
+        <GlowCard href="/dashboard/reviews">
+          <p className="text-xs font-medium uppercase tracking-widest text-white/30">
+            Google Links
+          </p>
           <p className="mt-3 text-4xl font-light tabular-nums text-emerald-400">
             {stats.googleLinksClicked}
           </p>
@@ -256,59 +267,34 @@ export default function DashboardPage() {
         </GlowCard>
       </div>
 
-      {/* Analytics Charts Section */}
-      <div className="dashboard-surface rounded-[1.75rem] p-6">
-        <h3 className="text-lg font-semibold text-white mb-6">Performance Analytics</h3>
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <h4 className="text-sm font-medium text-white/70 mb-4">Key Metrics</h4>
-            <div className="space-y-4">
-              {[
-                { label: "Customer Growth Rate", value: stats.customersChangeThisWeek > 0 ? `+${stats.customersChangeThisWeek} this week` : "No new customers", color: "text-emerald-400" },
-                { label: "SMS Usage", value: `${stats.smsSentThisMonth}/${stats.smsLimit} this month`, color: "text-blue-400" },
-                { label: "Review Generation", value: `${stats.googleLinksClicked} Google review links sent`, color: "text-amber-400" },
-                { label: "Pending Actions", value: `${stats.pendingApprovals} messages need approval`, color: stats.pendingApprovals > 0 ? "text-red-400" : "text-white/60" },
-              ].map((metric) => (
-                <div key={metric.label} className="flex items-center justify-between py-2">
-                  <span className="text-sm text-white/60">{metric.label}</span>
-                  <span className={`text-sm font-medium ${metric.color}`}>{metric.value}</span>
-                </div>
-              ))}
-            </div>
+      <GlowCard>
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+            {"\u2726"}
           </div>
-
           <div>
-            <h4 className="text-sm font-medium text-white/70 mb-4">Rating Trend</h4>
-            <div className="flex items-center justify-center py-8">
-              {stats.avgRatingThisWeek > 0 ? (
-                <div className="text-center">
-                  <div className="text-6xl font-light text-white mb-2">
-                    {stats.avgRatingThisWeek.toFixed(1)}
-                  </div>
-                  <div className="flex justify-center mb-2">
-                    <Stars rating={stats.avgRatingThisWeek} />
-                  </div>
-                  <p className="text-sm text-white/60">Average rating this week</p>
-                </div>
-              ) : (
-                <div className="text-center text-white/40">
-                  <div className="text-4xl mb-2">⭐</div>
-                  <p className="text-sm">No ratings yet this week</p>
-                </div>
-              )}
-            </div>
+            <p className="text-sm font-medium text-white/80">AI Insights</p>
+            <p className="text-xs text-white/30">
+              Live guidance derived from your current dashboard metrics
+            </p>
           </div>
         </div>
-      </div>
+        <div className="space-y-3 border-l-2 border-emerald-500/30 pl-4">
+          {insights.map((insight) => (
+            <div
+              key={insight.text}
+              className={`rounded-2xl border px-4 py-3 text-sm ${insight.tone}`}
+            >
+              <span className="mr-2">{insight.icon}</span>
+              {insight.text}
+            </div>
+          ))}
+        </div>
+      </GlowCard>
 
       <GlowCard>
         <div className="mb-4 flex items-center justify-between">
-          <p 
-            className="text-sm font-medium text-white/70 cursor-pointer hover:text-white/90"
-            onClick={() => setShowAllActivity(!showAllActivity)}
-          >
-            Recent Activity {activity.length > 6 && !showAllActivity ? `(showing 6 of ${activity.length})` : ''}
-          </p>
+          <p className="text-sm font-medium text-white/70">Recent Activity</p>
           <Link
             href="/dashboard/sms"
             className="text-xs text-emerald-500/50 hover:text-emerald-400"
@@ -318,33 +304,57 @@ export default function DashboardPage() {
         </div>
         <div className="divide-y divide-white/[0.04]">
           {activity.length === 0 ? (
-            <div className="py-8 text-center text-sm text-white/20">
-              No activity yet
-            </div>
+            <div className="py-8 text-center text-sm text-white/20">No activity yet</div>
           ) : (
-            (showAllActivity ? activity : activity.slice(0, 6)).map((item) => (
-              <div
-                key={item._id}
-                className="flex items-center justify-between py-3 transition-colors hover:bg-white/[0.02]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-1.5 w-1.5 rounded-full bg-white/20" />
-                  <span className="text-sm font-medium text-white/80">
-                    {item.customerName}
+            activity.map((item) => {
+              const isFailed = item.status === "FAILED";
+              const rowContent = (
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className={`h-1.5 w-1.5 rounded-full ${isFailed ? "bg-red-400/70" : "bg-white/20"}`} />
+                    <span className="text-sm font-medium text-white/80">
+                      {item.customerName}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs ${
+                        typeColors[item.smsType] ?? "bg-zinc-600/20"
+                      }`}
+                    >
+                      {item.smsType.replace("_", " ")}
+                    </span>
+                    {isFailed && (
+                      <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs text-red-300">
+                        Failed
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-white/20">
+                    {formatTimeAgo(item.sentAt)}
                   </span>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs ${
-                      typeColors[item.smsType] ?? "bg-zinc-600/20"
-                    }`}
+                </>
+              );
+
+              if (isFailed) {
+                return (
+                  <Link
+                    key={item._id}
+                    href="/dashboard/sms?tab=history&status=FAILED"
+                    className="flex items-center justify-between py-3 transition-colors hover:bg-white/[0.02]"
                   >
-                    {item.smsType.replace("_", " ")}
-                  </span>
+                    {rowContent}
+                  </Link>
+                );
+              }
+
+              return (
+                <div
+                  key={item._id}
+                  className="flex items-center justify-between py-3 transition-colors hover:bg-white/[0.02]"
+                >
+                  {rowContent}
                 </div>
-                <span className="text-xs text-white/20">
-                  {formatTimeAgo(item.sentAt)}
-                </span>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </GlowCard>
@@ -367,12 +377,13 @@ export default function DashboardPage() {
           ) : (
             (customers ?? [])
               .sort((a, b) => (b.lastVisitAt ?? 0) - (a.lastVisitAt ?? 0))
-              .slice(0, 10)
+              .slice(0, 8)
               .map((customer) => (
-                <div
+                <button
                   key={customer._id}
-                  className="flex items-center justify-between py-3 transition-colors hover:bg-white/[0.02] cursor-pointer"
+                  type="button"
                   onClick={() => setDrawerId(customer._id)}
+                  className="flex w-full items-center justify-between py-3 text-left transition-colors hover:bg-white/[0.02]"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-1.5 w-1.5 rounded-full bg-white/20" />
@@ -384,14 +395,16 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-medium text-emerald-400">
+                    <p className="text-sm font-medium text-emerald-400">
                       {customer.points} pts
-                    </span>
+                    </p>
                     <p className="text-xs text-white/20">
-                      {customer.lastVisitAt ? formatTimeAgo(customer.lastVisitAt) : "Never"}
+                      {customer.lastVisitAt
+                        ? formatTimeAgo(customer.lastVisitAt)
+                        : "Never"}
                     </p>
                   </div>
-                </div>
+                </button>
               ))
           )}
         </div>
@@ -399,11 +412,13 @@ export default function DashboardPage() {
 
       {drawerId && customers && (
         <CustomerDrawer
-          customer={customers.find((c) => c._id === drawerId)!}
+          customer={customers.find((customer) => customer._id === drawerId)!}
           smsHistory={smsHistory ?? []}
           receiptHistory={receiptHistory ?? []}
-          restaurantId={restaurantId!}
+          restaurantId={restaurantId}
           onClose={() => setDrawerId(null)}
+          isLoadingSms={smsHistory === undefined}
+          isLoadingReceipts={receiptHistory === undefined}
         />
       )}
     </div>

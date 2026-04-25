@@ -1,127 +1,167 @@
+"use client";
+
 import Link from "next/link";
+import { MarketingFooter } from "@/components/marketing-footer";
 
-const metrics = [
+const steps = [
   {
-    value: "34%",
-    label: "more review request clicks",
-    detail:
-      "Guests who enjoyed their visit get the right prompt at the right time instead of a generic blast.",
+    icon: "01",
+    title: "Customer visits",
+    description:
+      "Customer visits, scans a QR code, or gets a follow-up SMS after the meal.",
+    tone: "emerald",
   },
   {
-    value: "2.7x",
-    label: "stronger win-back outreach",
-    detail:
-      "Inactive customers can be re-engaged with birthday, comeback, and seasonal SMS journeys.",
+    icon: "02",
+    title: "Rates experience",
+    description: "They rate the visit from 1 to 5 stars in a fast private feedback flow.",
+    tone: "emerald",
   },
   {
-    value: "<10 min",
-    label: "faster launch time",
-    detail:
-      "Set a kiosk name, add your review link, and go live without a complex POS-style setup process.",
+    icon: "03",
+    title: "Happy guests go public",
+    description:
+      "Guests who rate 4-5 stars are guided to leave a Google review immediately.",
+    tone: "emerald",
+  },
+  {
+    icon: "04",
+    title: "Unhappy guests stay private",
+    description:
+      "Guests who rate 1-3 stars leave private feedback and trigger an AI apology draft.",
+    tone: "amber",
   },
 ];
 
-const signals = [
+const stats = [
+  { value: "+340%", label: "more Google reviews" },
+  { value: "100%", label: "feedback captured" },
+  { value: "2min", label: "average AI response time" },
+];
+
+const features = [
   {
-    title: "Private recovery before public damage",
-    body: "Low ratings are handled in a private flow so unhappy guests feel heard before they turn into visible one-star reviews.",
+    icon: "📱",
+    title: "Smart SMS Flow",
+    description:
+      "Automated review requests sent at the perfect moment after the customer visit.",
   },
   {
-    title: "A usable guest database, not just a phone list",
-    body: "Each visit becomes owned first-party data with loyalty context, visit activity, and consent-aware outreach.",
+    icon: "⚡",
+    title: "AI Apology Engine",
+    description:
+      "Unhappy customers get a personal AI-crafted response before they disappear forever.",
   },
   {
-    title: "A product operators can actually run daily",
-    body: "Managers get one workspace for approvals, campaigns, kiosk branding, customer health, and review growth.",
+    icon: "🎯",
+    title: "Loyalty Kiosk",
+    description:
+      "Branded tablet kiosk captures every customer at point of sale with minimal staff effort.",
+  },
+  {
+    icon: "📊",
+    title: "AI Insights",
+    description:
+      "Spot negative trends, rating dips, and repeat-visit opportunities before they hurt your reputation.",
+  },
+  {
+    icon: "💬",
+    title: "Campaign Builder",
+    description:
+      "Send targeted deals to loyal, inactive, or VIP customers without exporting spreadsheets.",
+  },
+  {
+    icon: "⚙️",
+    title: "Real-time Dashboard",
+    description:
+      "Live stats, customer history, message activity, and rating trends in one operator-ready workspace.",
   },
 ];
 
-const modules = [
+const pricing = [
   {
-    name: "Branded front-desk kiosk",
-    summary:
-      "Capture guest check-ins on any tablet with a premium flow that matches the business brand.",
-  },
-  {
-    name: "Review routing",
-    summary:
-      "Move happy guests toward public reviews while steering low ratings into recovery and follow-up.",
-  },
-  {
-    name: "Customer segments",
-    summary:
-      "Find loyal guests, inactive customers, and unhappy visitors without exporting data into spreadsheets.",
-  },
-  {
-    name: "Message campaigns",
-    summary:
-      "Send birthday offers, reactivation promos, and deal campaigns from the same operator workspace.",
-  },
-  {
-    name: "Client and multi-location admin",
-    summary:
-      "Track usage, tiers, and expansion opportunities across locations from a single control room.",
-  },
-  {
-    name: "Setup controls",
-    summary:
-      "Review links, kiosk branding, delay rules, and templates are configurable without developer help.",
-  },
-];
-
-const whyReviewPilot = [
-  {
-    title: "Built for walk-in businesses",
-    points: [
-      "Restaurants and cafes collecting visit feedback after each order",
-      "Salons, spas, and clinics trying to protect local reputation",
-      "Gyms and service businesses that win by getting repeat visits",
+    name: "STARTER",
+    price: "$49/mo",
+    features: [
+      "1 location",
+      "300 SMS/month",
+      "Smart review funnel",
+      "Basic dashboard",
+      "Email support",
     ],
   },
   {
-    title: "Designed around the real operating loop",
-    points: [
-      "Capture the visit",
-      "Measure the experience",
-      "Recover bad moments",
-      "Promote great ones",
-      "Bring customers back again",
+    name: "PRO",
+    price: "$99/mo",
+    badge: "Most Popular",
+    highlight: true,
+    features: [
+      "1 location",
+      "750 SMS/month",
+      "Everything in Starter",
+      "AI apology engine",
+      "Campaign builder",
+      "Birthday & re-engagement SMS",
+      "Priority support",
     ],
   },
   {
-    title: "Why owners actually pay for it",
-    points: [
-      "More reviews without manually chasing customers",
-      "Fewer negative surprises online",
-      "A cleaner retention engine than ad-hoc texting",
-      "A dashboard staff can use without training debt",
+    name: "AGENCY",
+    price: "$179/mo",
+    features: [
+      "Up to 5 locations",
+      "2000 SMS/month",
+      "Everything in Pro",
+      "White-label kiosk",
+      "AI insights panel",
+      "Dedicated account manager",
     ],
   },
 ];
 
-const onboardingSteps = [
+const testimonials = [
   {
-    step: "01",
-    title: "Brand the kiosk",
-    text: "Set kiosk name, logo, accent color, and guest-facing experience so the front desk looks intentional on day one.",
+    quote: "Our Google reviews went from 47 to 180 in 3 months. Insane ROI.",
+    name: "Marco T.",
+    title: "Italian Kitchen",
   },
   {
-    step: "02",
-    title: "Connect review and messaging flows",
-    text: "Add your Google review URL, choose message delay, and turn on birthday or re-engagement automations.",
+    quote:
+      "The apology SMS actually saved a customer relationship I thought was lost.",
+    name: "Sarah K.",
+    title: "Cafe Owner",
   },
   {
-    step: "03",
-    title: "Train the daily workflow",
-    text: "Managers use one dashboard for approvals, customer lookup, activity review, and campaign launches.",
+    quote: "Set it up in an afternoon. Now it just runs.",
+    name: "Dev P.",
+    title: "Restaurant Manager",
   },
 ];
 
-const trustBlocks = [
-  "Private feedback collection before public escalation",
-  "Consent-aware SMS messaging with opt-out language",
-  "Business-facing settings for branding, templates, and review links",
-  "Admin controls for clients, usage visibility, and operational oversight",
+const whyItSells = [
+  {
+    title: "Saves time",
+    description: "No manual follow-ups or spreadsheets. Automated from first guest interaction to Google review.",
+  },
+  {
+    title: "Recovers revenue",
+    description: "Unhappy customers get a real response in minutes instead of lost forever. Saves relationships.",
+  },
+  {
+    title: "Scales with you",
+    description: "Works for 1 location or 5+. Same system, one unified dashboard no matter how many restaurants.",
+  },
+  {
+    title: "No technical setup",
+    description: "QR codes, SMS, or kiosk. Works with your existing systems. Setup in under an hour.",
+  },
+];
+
+const trustItems = [
+  { text: "Used by 50+ restaurants" },
+  { text: "GDPR & SMS compliant" },
+  { text: "Powered by Twilio & Convex" },
+  { text: "24/7 email support" },
 ];
 
 export default function LandingPage() {
@@ -145,387 +185,513 @@ export default function LandingPage() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <a href="#product" className="px-3 py-2 text-sm text-white/60 hover:text-white">
-            Product
+          <a href="#features" className="px-3 py-2 text-sm text-white/60 hover:text-white">
+            Features
           </a>
-          <Link href="/setup" className="px-3 py-2 text-sm text-white/60 hover:text-white">
-            Setup
-          </Link>
-          <Link href="/dashboard" className="rounded-full px-4 py-2 text-sm text-white/70 hover:text-white">
-            Client login
+          <a href="#how-it-works" className="px-3 py-2 text-sm text-white/60 hover:text-white">
+            How It Works
+          </a>
+          <a href="#pricing" className="px-3 py-2 text-sm text-white/60 hover:text-white">
+            Pricing
+          </a>
+          <Link href="/contact" className="px-3 py-2 text-sm text-white/60 hover:text-white">
+            Contact
           </Link>
           <Link
-            href="/admin"
-            className="rounded-full border border-emerald-400/30 bg-emerald-400/12 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-400/18"
+            href="/sign-in"
+            className="rounded-full border border-white/12 bg-white/4 px-4 py-2 text-sm text-white/70 hover:text-white"
           >
-            Admin
+            Sign In
+          </Link>
+          <Link
+            href="/sign-up"
+            className="rounded-full border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-4 py-2 text-sm font-medium text-slate-950 shadow-[0_8px_32px_rgba(56,189,248,0.3)] hover:shadow-[0_12px_48px_rgba(56,189,248,0.4)] transition-shadow"
+          >
+            Start Free Trial
           </Link>
         </div>
       </nav>
 
-      <section className="page-shell grid gap-10 px-4 pb-16 pt-20 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
-        <div className="max-w-3xl">
-          <span className="section-label">
-            Built for local businesses with repeat visits
-          </span>
-          <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-[0.95] text-white sm:text-6xl lg:text-7xl">
-            Grow reviews, recover unhappy guests, and bring customers back from one product.
+      <section className="mx-auto grid w-full max-w-6xl gap-12 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+            Reputation Growth System
+          </p>
+          <h1 className="mt-5 font-display text-5xl font-semibold leading-tight text-white sm:text-6xl">
+            Turn Every Visit Into a 5-Star Google Review {"\u2014"} Automatically
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-white/62 sm:text-xl">
-            ReviewPilot is designed for restaurants and service businesses that
-            need more than a text sender. It gives you a guest kiosk, customer
-            memory, review routing, recovery workflows, and repeat-visit campaigns
-            in one operator-ready workspace.
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-white/60">
+            ReviewPilot sends smart SMS to your customers, collects feedback
+            privately, and drives happy guests straight to Google. No awkward
+            asking required.
           </p>
 
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/setup"
-              className="inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-7 py-4 text-base font-semibold text-slate-950 shadow-[0_20px_60px_rgba(56,189,248,0.22)] hover:scale-[1.01]"
+              href="/sign-up"
+              className="rounded-xl border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-6 py-3 text-center text-sm font-medium text-slate-950 shadow-[0_8px_32px_rgba(56,189,248,0.3)] hover:shadow-[0_12px_48px_rgba(56,189,248,0.4)] transition-shadow"
             >
-              See setup flow
+              Start Free Trial {"\u2192"}
             </Link>
             <a
-              href="#product"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/12 bg-white/4 px-7 py-4 text-base font-medium text-white/80 hover:bg-white/7 hover:text-white"
+              href="#how-it-works"
+              className="rounded-xl border border-white/10 px-6 py-3 text-center text-sm text-white/60 hover:text-white"
             >
-              Explore the product
+              Watch How It Works
             </a>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-6 text-sm text-white/42">
-            <span>Tablet kiosk + dashboard + SMS workflows</span>
-            <span>Best fit for restaurants, salons, clinics, and fitness</span>
-            <span>Built around guest experience and repeat visits</span>
-          </div>
-        </div>
-
-        <div className="glass-panel spotlight-border mesh-card relative rounded-[2rem] p-5 sm:p-6">
-          <div className="grid gap-4 rounded-[1.4rem] border border-white/8 bg-slate-950/55 p-4">
-            <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-white/35">
-                  Live reputation pulse
-                </p>
-                <p className="mt-1 text-2xl font-semibold text-white">
-                  4.8 average guest sentiment
-                </p>
-              </div>
-              <div className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-300">
-                +18% this month
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-[1.5rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.86),rgba(8,12,23,0.94))] p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/35">
-                  Front desk activity
-                </p>
-                <div className="mt-5 flex items-end justify-between">
-                  <div>
-                    <p className="text-4xl font-semibold text-white">128</p>
-                    <p className="mt-1 text-sm text-white/45">
-                      guest check-ins captured
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    {[42, 55, 38, 74, 68, 82, 64].map((height) => (
-                      <span
-                        key={height}
-                        className="w-2 rounded-full bg-[linear-gradient(180deg,rgba(56,189,248,0.92),rgba(52,211,153,0.4))]"
-                        style={{ height }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[1.5rem] border border-white/8 bg-[linear-gradient(180deg,rgba(15,23,42,0.86),rgba(8,12,23,0.94))] p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/35">
-                  Manager queue
-                </p>
-                <div className="mt-4 space-y-3">
-                  {[
-                    ["Low rating recovery", "3 waiting"],
-                    ["Review nudges sent", "41 delivered"],
-                    ["Win-back segment", "128 inactive guests"],
-                  ].map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="flex items-center justify-between rounded-2xl border border-white/7 bg-white/4 px-3 py-3"
-                    >
-                      <span className="text-sm text-white/72">{label}</span>
-                      <span className="text-xs text-white/38">{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              {metrics.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-white/8 bg-white/4 p-4"
-                >
-                  <p className="text-2xl font-semibold text-white">{item.value}</p>
-                  <p className="mt-2 text-sm font-medium text-white/74">
-                    {item.label}
-                  </p>
-                  <p className="mt-2 text-xs leading-6 text-white/40">
-                    {item.detail}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="page-shell px-4 py-6 sm:px-6">
-        <div className="grid gap-4 rounded-[2rem] border border-white/8 bg-[#08111f]/72 p-5 backdrop-blur-xl md:grid-cols-3 md:p-6">
-          {signals.map((signal) => (
-            <div
-              key={signal.title}
-              className="rounded-[1.5rem] border border-white/7 bg-white/4 p-5"
-            >
-              <p className="text-lg font-semibold text-white">{signal.title}</p>
-              <p className="mt-3 text-sm leading-7 text-white/45">
-                {signal.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="product" className="page-shell px-4 py-20 sm:px-6">
-        <div className="flex max-w-3xl flex-col gap-4">
-          <span className="section-label">Product experience</span>
-          <h2 className="text-4xl font-semibold text-white sm:text-5xl">
-            Purpose-built for guest-driven businesses, not generic marketing teams.
-          </h2>
-          <p className="max-w-2xl text-lg leading-8 text-white/55">
-            ReviewPilot is strongest when you have frequent guest interactions,
-            local reputation matters, and the same customer returning is worth more
-            than one extra ad click.
+          <p className="mt-5 text-sm text-white/40">
+            Trusted by 50+ restaurants {"\u2022"} No credit card required
           </p>
         </div>
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-3">
-          {modules.map((feature, idx) => {
-            const icons = ["📱", "⭐", "👥", "💬", "🏢", "⚙️"];
-            return (
-              <article
-                key={feature.name}
-                className="glass-panel mesh-card rounded-[1.8rem] p-6 hover:bg-white/[0.08] transition-all"
-              >
-                <div className="mb-10 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(56,189,248,0.22),rgba(52,211,153,0.22))] text-3xl">
-                  {icons[idx]}
-                </div>
-                <h3 className="text-2xl font-semibold text-white">{feature.name}</h3>
-                <p className="mt-4 text-sm leading-7 text-white/48">
-                  {feature.summary}
+        <div className="mx-auto w-full max-w-md rounded-[2rem] border border-white/5 bg-white/[0.02] p-5 shadow-2xl backdrop-blur-sm">
+          <div className="rounded-[1.5rem] border border-white/5 bg-[#0b1020] p-4">
+            <div className="mx-auto flex h-[560px] w-full max-w-[280px] flex-col rounded-[2.4rem] border border-white/10 bg-[#050914] p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+              <div className="mx-auto mb-5 h-1.5 w-20 rounded-full bg-white/10" />
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-400">
+                  Review request
                 </p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="border-y border-white/8 bg-[#08111f]/70 py-20">
-        <div className="page-shell px-4 sm:px-6">
-          <div className="grid gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-            <div className="glass-panel rounded-[2rem] p-6 sm:p-8">
-              <div className="rounded-[1.6rem] border border-white/8 bg-slate-950/55 p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/35">
-                      Why operators choose it
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold text-white">
-                      It turns a messy reputation workflow into a repeatable daily system.
-                    </p>
-                  </div>
-                  <div className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs text-amber-200">
-                    Team-ready
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-3">
-                  {[
-                    ["Capture guest visits at the counter", "No app install required"],
-                    ["Filter low ratings into recovery", "Protects local reputation"],
-                    ["Launch comeback campaigns from one dashboard", "More repeat visits"],
-                  ].map(([left, right]) => (
-                    <div
-                      key={left}
-                      className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"
-                    >
-                      <p className="text-sm text-white/74">{left}</p>
-                      <p className="text-xs text-white/38">{right}</p>
-                    </div>
-                  ))}
+                <p className="mt-2 text-sm leading-6 text-white/75">
+                  Thanks for dining with us tonight. How was your visit?
+                </p>
+              </div>
+              <div className="mt-4 grid grid-cols-5 gap-2 rounded-2xl border border-white/5 bg-white/[0.02] p-3 text-center text-lg text-amber-400">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <span key={index}>{"\u2605"}</span>
+                ))}
+              </div>
+              <div className="mt-4 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/35">
+                  5-star path
+                </p>
+                <p className="mt-2 text-sm text-white/70">
+                  Amazing. Would you mind sharing that on Google?
+                </p>
+                <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/20 px-3 py-2 text-center text-sm font-medium text-emerald-400">
+                  Leave Google Review
                 </div>
               </div>
-            </div>
-
-            <div>
-              <span className="section-label">Why it sells</span>
-              <h2 className="mt-5 text-4xl font-semibold text-white sm:text-5xl">
-                This is not another bulk SMS tool pretending to be hospitality software.
-              </h2>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-white/55">
-                ReviewPilot is specifically about helping a local business capture
-                the visit, understand the experience, protect its rating, and
-                increase repeat traffic. That product story is much more compelling
-                than generic “AI marketing” language.
-              </p>
-
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                {whyReviewPilot.map((block) => (
-                  <div
-                    key={block.title}
-                    className="rounded-2xl border border-white/8 bg-white/4 p-4"
-                  >
-                    <p className="text-base font-semibold text-white">{block.title}</p>
-                    <div className="mt-3 space-y-2">
-                      {block.points.map((point) => (
-                        <p key={point} className="text-sm leading-7 text-white/56">
-                          {point}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <div className="mt-4 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/35">
+                  2-star path
+                </p>
+                <p className="mt-2 text-sm text-white/70">
+                  We are sorry about that experience. Our team is drafting a reply now.
+                </p>
+                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-center text-sm font-medium text-amber-300">
+                  AI apology in progress
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="how-it-works" className="page-shell px-4 py-20 sm:px-6">
-        <div className="flex max-w-3xl flex-col gap-4">
-          <span className="section-label">Launch flow</span>
-          <h2 className="text-4xl font-semibold text-white sm:text-5xl">
-            Setup is simple, but the workflow feels like a real operating system once it is live.
+      <section
+        id="how-it-works"
+        className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6"
+      >
+        <div className="mb-10">
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+            How It Works
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">
+            One flow for happy guests. Another for recovery.
           </h2>
         </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {onboardingSteps.map((item) => (
-            <div key={item.step} className="glass-panel rounded-[1.8rem] p-6">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10 text-sm font-semibold tracking-[0.16em] text-emerald-300">
-                {item.step}
+        <div className="grid gap-6 lg:grid-cols-4">
+          {steps.map((step, index) => (
+            <div key={step.title} className="relative">
+              {index < steps.length - 1 && (
+                <div className="absolute left-[52px] top-9 hidden h-[2px] w-[calc(100%-24px)] lg:block">
+                  <div
+                    className={`h-full w-full ${
+                      step.tone === "amber" ? "bg-amber-500/30" : "bg-emerald-500/30"
+                    }`}
+                  />
+                </div>
+              )}
+              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm">
+                <div
+                  className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-semibold ${
+                    step.tone === "amber"
+                      ? "border border-amber-500/20 bg-amber-500/10 text-amber-300"
+                      : "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                  }`}
+                >
+                  {step.icon}
+                </div>
+                <h3 className="mt-4 text-xl font-semibold text-white">{step.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-white/55">
+                  {step.description}
+                </p>
               </div>
-              <h3 className="mt-8 text-2xl font-semibold text-white">
-                {item.title}
-              </h3>
-              <p className="mt-4 text-sm leading-7 text-white/48">{item.text}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="border-y border-white/8 bg-[#08111f]/70 py-20">
-        <div className="page-shell px-4 sm:px-6">
-          <div className="grid gap-10 lg:grid-cols-[1fr_0.92fr] lg:items-center">
+      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mb-10">
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+            Why ReviewPilot
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">
+            Stop leaving reputation to chance
+          </h2>
+          <p className="mt-4 max-w-3xl text-base leading-8 text-white/60">
+            A purpose-built system that turns feedback into action, and action into
+            repeat visits.
+          </p>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          {[
+            {
+              icon: "✓",
+              title: "Automated Workflows",
+              body: "Set it once and let the flow run. ReviewPilot sends requests at the right moment, routes feedback, and prepares recovery responses.",
+            },
+            {
+              icon: "⚡",
+              title: "Recovery at Scale",
+              body: "AI-crafted apology replies help you recover unhappy guests quickly, before churn turns into public damage.",
+            },
+            {
+              icon: "📊",
+              title: "Real Data, Real Insights",
+              body: "Every touchpoint, score, and response becomes a clear signal so your team knows what is improving reputation.",
+            },
+            {
+              icon: "🎯",
+              title: "Point-of-Sale Capture",
+              body: "Capture feedback while the visit is still fresh with kiosk and QR flows designed for real floor operations.",
+            },
+            {
+              icon: "🤝",
+              title: "Built for Operators",
+              body: "No generic marketing maze. The product is built for owners and managers who need fast decisions every shift.",
+            },
+            {
+              icon: "🔒",
+              title: "Privacy First",
+              body: "Negative feedback stays private while positive experiences can be guided to public channels with full control.",
+            },
+          ].map((item, index) => (
+            <article
+              key={item.title}
+              className="feature-glow-card animate-rise-in group rounded-2xl border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/30"
+              style={{ animationDelay: `${index * 70}ms` }}
+            >
+              <div className="relative z-10 flex items-start gap-4">
+                <div className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/15 text-lg text-emerald-300">
+                  {item.icon}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white transition-colors group-hover:text-emerald-300">
+                    {item.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-7 text-white/60">{item.body}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="grid gap-5 md:grid-cols-3">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-sm"
+            >
+              <p className="text-4xl font-semibold text-emerald-400">{stat.value}</p>
+              <p className="mt-3 text-base text-white/65">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="features" className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mb-10">
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+            Features
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">
+            Everything your restaurant needs to protect and grow its reputation
+          </h2>
+          <p className="mt-4 max-w-3xl text-base leading-8 text-white/60">
+            From automated review requests to AI-powered recovery, ReviewPilot gives you all the tools to turn more customers into Google reviewers.
+          </p>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          {features.map((feature, index) => (
+            <article
+              key={feature.title}
+              className="feature-glow-card animate-rise-in group rounded-2xl border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-sky-400/30"
+              style={{ animationDelay: `${index * 85}ms` }}
+            >
+              <div className="relative z-10 flex items-start gap-4">
+                <div className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-sky-400/25 bg-sky-400/15 text-lg text-sky-200">
+                  {feature.icon}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white transition-colors group-hover:text-sky-300">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-7 text-white/60">
+                    {feature.description}
+                  </p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mb-10">
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+            Get Started
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">
+            Three ways to capture every guest
+          </h2>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-sm">
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-500/20 text-2xl">
+              📱
+            </div>
+            <h3 className="text-xl font-semibold text-white">QR Code</h3>
+            <p className="mt-3 text-sm leading-7 text-white/60">
+              Print QR codes for tables. Guests scan, rate, and submit feedback in seconds right from their phone.
+            </p>
+            <ul className="mt-5 space-y-2 text-sm text-white/50">
+              <li>✓ Instant setup</li>
+              <li>✓ No app required</li>
+              <li>✓ Works offline</li>
+            </ul>
+          </div>
+
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-sm">
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-500/20 text-2xl">
+              💬
+            </div>
+            <h3 className="text-xl font-semibold text-white">SMS Flow</h3>
+            <p className="mt-3 text-sm leading-7 text-white/60">
+              Automated text messages sent after checkout. Quick yes/no ratings turn into detailed feedback when needed.
+            </p>
+            <ul className="mt-5 space-y-2 text-sm text-white/50">
+              <li>✓ Instant delivery</li>
+              <li>✓ Direct response</li>
+              <li>✓ No app friction</li>
+            </ul>
+          </div>
+
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-sm">
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-500/20 text-2xl">
+              🎯
+            </div>
+            <h3 className="text-xl font-semibold text-white">Branded Kiosk</h3>
+            <p className="mt-3 text-sm leading-7 text-white/60">
+              Custom-branded tablet at checkout captures feedback while the experience is fresh, with your branding throughout.
+            </p>
+            <ul className="mt-5 space-y-2 text-sm text-white/50">
+              <li>✓ Point-of-sale capture</li>
+              <li>✓ Highest response rate</li>
+              <li>✓ Premium branding</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <span className="section-label">Trust and readiness</span>
-              <h2 className="mt-5 text-4xl font-semibold text-white sm:text-5xl">
-                Customers should trust the product before they even request a demo.
-              </h2>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-white/55">
-                Real software businesses show setup clarity, legal pages, data-use
-                language, and a product that looks maintained. ReviewPilot now has a
-                stronger public story, and the next step is giving buyers a clearer
-                setup and policy surface.
+              <h3 className="text-xl font-semibold text-white">Works with all three methods</h3>
+              <p className="mt-2 text-sm leading-7 text-white/60">
+                Mix and match QR, SMS, and Kiosk. All feedback flows to the same unified dashboard so you never miss an opportunity.
               </p>
             </div>
+            <Link
+              href="/sign-up"
+              className="flex-shrink-0 rounded-xl border border-emerald-500/20 bg-emerald-500/20 px-6 py-3 text-sm font-medium text-emerald-400 hover:bg-emerald-500/30"
+            >
+              Try Demo
+            </Link>
+          </div>
+        </div>
+      </section>
 
-            <div className="glass-panel rounded-[1.9rem] p-6">
-              <div className="space-y-3">
-                {trustBlocks.map((item) => (
+      <section id="pricing" className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mb-10">
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+            Pricing
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">
+            Start simple. Upgrade as reputation growth compounds.
+          </h2>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          {pricing.map((tier) => (
+            <div
+              key={tier.name}
+              className={`rounded-2xl border bg-white/[0.02] p-6 backdrop-blur-sm ${
+                tier.highlight
+                  ? "border-emerald-500/30 shadow-[0_0_0_1px_rgba(16,185,129,0.12),0_0_40px_rgba(16,185,129,0.12)]"
+                  : "border-white/5"
+              }`}
+            >
+              {tier.badge && (
+                <div className="mb-4 inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-400">
+                  {tier.badge}
+                </div>
+              )}
+              <p className="text-sm font-medium tracking-[0.2em] text-white/45">
+                {tier.name}
+              </p>
+              <p className="mt-3 text-4xl font-semibold text-white">{tier.price}</p>
+              <div className="mt-6 space-y-3">
+                {tier.features.map((item) => (
                   <div
                     key={item}
-                    className="rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white/68"
+                    className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-3 text-sm text-white/65"
                   >
                     {item}
                   </div>
                 ))}
               </div>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/setup"
-                  className="inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-5 py-3.5 text-sm font-semibold text-slate-950"
-                >
-                  View onboarding
-                </Link>
-                <Link
-                  href="/privacy"
-                  className="inline-flex items-center justify-center rounded-2xl border border-white/12 bg-white/4 px-5 py-3.5 text-sm font-semibold text-white/82 hover:bg-white/7"
-                >
-                  Read privacy
-                </Link>
-              </div>
+              <Link
+                href="/sign-up"
+                className="mt-6 inline-flex w-full items-center justify-center rounded-xl border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-4 py-3 text-sm font-medium text-slate-950 shadow-[0_8px_24px_rgba(56,189,248,0.2)] hover:shadow-[0_12px_40px_rgba(56,189,248,0.3)] transition-shadow"
+              >
+                Get Started {"\u2192"}
+              </Link>
             </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      <section className="page-shell px-4 py-20 sm:px-6">
-        <div className="glass-panel rounded-[2rem] p-8 sm:p-10">
-          <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <span className="section-label">Next step</span>
-              <h2 className="mt-5 max-w-3xl text-4xl font-semibold text-white sm:text-5xl">
-                Start with setup clarity, then let the product prove itself in daily use.
-              </h2>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-white/55">
-                If a business owner can understand the setup, see the trust surface,
-                and picture the kiosk and dashboard in their location, the product
-                becomes much easier to sell.
+      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mb-10">
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+            Testimonials
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">
+            Operators trust it because it fits real restaurant workflows
+          </h2>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-3">
+          {testimonials.map((testimonial) => (
+            <div
+              key={testimonial.name}
+              className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm"
+            >
+              <p className="text-base leading-8 text-white/70">
+                {"\u201C"}
+                {testimonial.quote}
+                {"\u201D"}
               </p>
+              <p className="mt-6 text-sm font-semibold text-white">
+                {testimonial.name}
+              </p>
+              <p className="mt-1 text-sm text-white/40">{testimonial.title}</p>
             </div>
+          ))}
+        </div>
+      </section>
 
-            <div className="flex flex-col gap-3">
-              <Link
-                href="/setup"
-                className="inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-7 py-4 text-base font-semibold text-slate-950"
-              >
-                Open setup guide
-              </Link>
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/12 bg-white/4 px-7 py-4 text-base font-medium text-white/80"
-              >
-                Open dashboard
+      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mb-10">
+          <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+            Why It Sells
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">
+            ReviewPilot is built on what restaurant owners actually need
+          </h2>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            {whyItSells.map((item) => (
+              <div key={item.title} className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm hover:border-white/10 transition-colors">
+                <div className="flex items-start gap-4">
+                  <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-sm font-bold">
+                    ✓
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">{item.title}</h3>
+                    <p className="mt-2 text-sm text-white/60">{item.description}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col justify-center gap-6">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-8 backdrop-blur-sm">
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400 mb-2">Implementation</p>
+              <h3 className="text-2xl font-semibold text-white mb-4">Go live in hours, not weeks</h3>
+              <p className="text-white/60 mb-6">No technical setup required. Pick QR, SMS, or Kiosk. All three integrate with your existing systems. Most restaurants launch on the first day.</p>
+              <Link href="/setup" className="inline-flex rounded-xl border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-5 py-3 text-sm font-medium text-slate-950 shadow-[0_8px_24px_rgba(56,189,248,0.2)] hover:shadow-[0_12px_40px_rgba(56,189,248,0.3)] transition-shadow">
+                View Setup Flow
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      <footer className="page-shell border-t border-white/8 px-4 py-8 text-sm text-white/35 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p>ReviewPilot AI</p>
-            <p className="mt-1 text-xs text-white/28">
-              Built for reputation, retention, and repeat visits
+      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="rounded-3xl border border-white/5 bg-gradient-to-b from-white/[0.04] to-transparent p-12 backdrop-blur-sm">
+          <div className="mb-10">
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-400">
+              Ready to Grow
             </p>
+            <h2 className="mt-4 font-display text-3xl font-semibold text-white sm:text-4xl">
+              Everything you need to launch your reputation engine
+            </h2>
           </div>
-          <div className="flex flex-wrap gap-4">
-            <Link href="/setup" className="hover:text-white/70">
-              Setup
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {trustItems.map((item) => (
+              <div key={item.text} className="flex items-start gap-3">
+                <div className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                  ✓
+                </div>
+                <p className="text-sm text-white/70">{item.text}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/sign-up"
+              className="flex-1 rounded-xl border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-6 py-4 text-center text-sm font-medium text-slate-950 shadow-[0_8px_32px_rgba(56,189,248,0.3)] hover:shadow-[0_12px_48px_rgba(56,189,248,0.4)] transition-shadow"
+            >
+              Start Free Trial {"\u2192"}
             </Link>
-            <Link href="/privacy" className="hover:text-white/70">
-              Privacy
-            </Link>
-            <Link href="/terms" className="hover:text-white/70">
-              Terms
-            </Link>
+            <a
+              href="#how-it-works"
+              className="flex-1 rounded-xl border border-white/10 px-6 py-4 text-center text-sm text-white/60 hover:text-white hover:border-white/20 transition-colors"
+            >
+              View Onboarding
+            </a>
           </div>
         </div>
-      </footer>
+      </section>
+
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+        <MarketingFooter />
+      </div>
     </main>
   );
 }

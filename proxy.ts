@@ -5,9 +5,21 @@ import type { ReviewPilotRole } from "@/types/roles";
 const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 const isKioskRoute = createRouteMatcher(["/kiosk/(.*)"]);
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/privacy",
+  "/terms",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+]);
 
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
+
+  // Allow public routes without authentication
+  if (isPublicRoute(req)) {
+    return NextResponse.next();
+  }
 
   // Kiosk is always public
   if (isKioskRoute(req)) {
@@ -22,7 +34,8 @@ export default clerkMiddleware(async (auth, req) => {
       return redirectToSignIn({ returnBackUrl: pathname });
     }
     const role = sessionClaims?.metadata?.role as ReviewPilotRole | undefined;
-    if (role !== "OWNER" && role !== "STAFF") {
+    // Allow authenticated users if role metadata hasn't been synced to Clerk yet.
+    if (role && role !== "OWNER" && role !== "STAFF") {
       return NextResponse.redirect(new URL("/", req.url));
     }
     return NextResponse.next();

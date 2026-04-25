@@ -133,7 +133,8 @@ export default function AdminClientsPage() {
 
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-white/5">
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[980px]">
           <thead>
             <tr className="border-b border-white/5 bg-white/[0.02]">
               {["Restaurant","Owner","Tier","SMS Usage","Customers","Status","Actions"].map((h) => (
@@ -225,6 +226,7 @@ export default function AdminClientsPage() {
             })}
           </tbody>
         </table>
+        </div>
         {filtered.length === 0 && (
           <div className="py-16 text-center text-sm text-white/20">No clients found</div>
         )}

@@ -16,9 +16,15 @@ function statusLabel(customer: {
   isInactive: boolean;
   isUnhappy: boolean;
 }) {
-  if (customer.isUnhappy) return { text: "Needs recovery", tone: "bg-red-500/15 text-red-300" };
-  if (customer.isLoyal) return { text: "Loyal", tone: "bg-emerald-500/15 text-emerald-300" };
-  if (customer.isInactive) return { text: "Inactive", tone: "bg-amber-500/15 text-amber-200" };
+  if (customer.isUnhappy) {
+    return { text: "Needs recovery", tone: "bg-red-500/15 text-red-300" };
+  }
+  if (customer.isLoyal) {
+    return { text: "Loyal", tone: "bg-emerald-500/15 text-emerald-300" };
+  }
+  if (customer.isInactive) {
+    return { text: "Inactive", tone: "bg-amber-500/15 text-amber-200" };
+  }
   return { text: "Active", tone: "bg-blue-500/15 text-blue-300" };
 }
 
@@ -48,7 +54,12 @@ export function CustomerDrawer({
     lastBillAmount?: number;
   };
   smsHistory: { content: string; sentAt: number; smsType: string }[];
-  receiptHistory: { billAmount: number; pointsEarned: number; submittedAt: number; status: string }[];
+  receiptHistory: {
+    billAmount: number;
+    pointsEarned: number;
+    submittedAt: number;
+    status: string;
+  }[];
   restaurantId: Id<"restaurants">;
   onClose: () => void;
   isLoadingSms?: boolean;
@@ -57,7 +68,10 @@ export function CustomerDrawer({
   const [visitNote, setVisitNote] = useState(customer.visitNote ?? "");
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const updateNote = useMutation(api.dashboardMutations.updateCustomerVisitNote);
   const deleteCustomer = useMutation(api.dashboardMutations.deleteCustomer);
@@ -67,11 +81,11 @@ export function CustomerDrawer({
     try {
       await updateNote({ customerId: customer._id, restaurantId, visitNote });
       setToast({ message: "Note saved successfully", type: "success" });
-      setTimeout(() => setToast(null), 3000);
+      window.setTimeout(() => setToast(null), 3000);
     } catch (error) {
       console.error("Failed to save note:", error);
       setToast({ message: "Failed to save note", type: "error" });
-      setTimeout(() => setToast(null), 3000);
+      window.setTimeout(() => setToast(null), 3000);
     } finally {
       setSaving(false);
     }
@@ -101,7 +115,13 @@ export function CustomerDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <button
+        type="button"
+        aria-label="Close customer drawer"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
       <div className="dashboard-surface relative flex h-full w-full max-w-2xl flex-col rounded-2xl p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
         <div className="border-b border-white/7 pb-4">
           <div className="flex items-center justify-between">
@@ -109,7 +129,11 @@ export function CustomerDrawer({
               <h2 className="text-2xl font-semibold text-white">{customer.name}</h2>
               <p className="mt-1 text-sm text-white/42">{customer.phone}</p>
             </div>
-            <button onClick={onClose} className="text-sm text-white/42 hover:text-white">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm text-white/42 hover:text-white"
+            >
               Close
             </button>
           </div>
@@ -164,7 +188,11 @@ export function CustomerDrawer({
               Bill and points history
             </p>
             <div className="mt-3 space-y-3">
-              {receiptHistory.length === 0 ? (
+              {isLoadingReceipts ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/10 border-t-emerald-500/60" />
+                </div>
+              ) : receiptHistory.length === 0 ? (
                 <div className="rounded-2xl border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/42">
                   No bill history recorded yet
                 </div>
@@ -231,6 +259,7 @@ export function CustomerDrawer({
               className="mt-3 w-full rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white outline-none"
             />
             <button
+              type="button"
               onClick={handleSaveNote}
               disabled={saving}
               className="mt-3 rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
@@ -248,12 +277,14 @@ export function CustomerDrawer({
               </p>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setShowConfirm(false)}
                   className="rounded-2xl border border-white/8 bg-white/4 px-4 py-2.5 text-sm text-white/72"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleDelete}
                   className="rounded-2xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white"
                 >
@@ -263,6 +294,7 @@ export function CustomerDrawer({
             </div>
           ) : (
             <button
+              type="button"
               onClick={() => setShowConfirm(true)}
               className="text-sm text-red-300 hover:text-red-200"
             >
@@ -277,8 +309,8 @@ export function CustomerDrawer({
           <div
             className={`${
               toast.type === "success"
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                : "bg-red-500/20 text-red-300 border border-red-500/30"
+                ? "border border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                : "border border-red-500/30 bg-red-500/20 text-red-300"
             }`}
           >
             {toast.message}

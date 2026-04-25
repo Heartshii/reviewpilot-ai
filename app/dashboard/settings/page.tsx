@@ -20,6 +20,20 @@ type RestaurantSettingsView =
       reengagement90: boolean;
     };
 
+type AiBehaviorSettings = {
+  aiTone: "Friendly" | "Professional" | "Casual";
+  responseLength: "Short" | "Medium" | "Detailed";
+  autoApprove: boolean;
+  includeReviewLink: boolean;
+};
+
+const AI_BEHAVIOR_DEFAULTS: AiBehaviorSettings = {
+  aiTone: "Friendly",
+  responseLength: "Medium",
+  autoApprove: false,
+  includeReviewLink: true,
+};
+
 function buildFormSeed(
   restaurant: Doc<"restaurants">,
   settings: RestaurantSettingsView
@@ -35,19 +49,29 @@ function buildFormSeed(
     re30: settings.reengagement30 ?? true,
     re60: settings.reengagement60 ?? true,
     re90: settings.reengagement90 ?? true,
-    kioskName:
-      "kioskDisplayName" in settings
-        ? (settings.kioskDisplayName ?? restaurant.name)
-        : restaurant.name,
-    kioskAccent:
-      "kioskAccentColor" in settings
-        ? (settings.kioskAccentColor ?? "#3b82f6")
-        : "#3b82f6",
-    kioskBg:
-      "kioskBgImageUrl" in settings ? (settings.kioskBgImageUrl ?? "") : "",
-    kioskLogo:
-      "kioskLogoUrl" in settings ? (settings.kioskLogoUrl ?? "") : "",
   };
+}
+
+function readAiBehavior(restaurantId: Id<"restaurants">): AiBehaviorSettings {
+  if (typeof window === "undefined") {
+    return AI_BEHAVIOR_DEFAULTS;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(`ai-behavior-${restaurantId}`);
+    if (!stored) return AI_BEHAVIOR_DEFAULTS;
+
+    const parsed = JSON.parse(stored) as Partial<AiBehaviorSettings>;
+    return {
+      aiTone: parsed.aiTone ?? AI_BEHAVIOR_DEFAULTS.aiTone,
+      responseLength: parsed.responseLength ?? AI_BEHAVIOR_DEFAULTS.responseLength,
+      autoApprove: parsed.autoApprove ?? AI_BEHAVIOR_DEFAULTS.autoApprove,
+      includeReviewLink:
+        parsed.includeReviewLink ?? AI_BEHAVIOR_DEFAULTS.includeReviewLink,
+    };
+  } catch {
+    return AI_BEHAVIOR_DEFAULTS;
+  }
 }
 
 function SectionCard({
@@ -60,13 +84,29 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="dashboard-surface rounded-[1.75rem] p-6">
-      <div>
-        <h2 className="text-xl font-semibold text-white">{title}</h2>
-        <p className="mt-2 text-sm leading-7 text-white/42">{description}</p>
-      </div>
+    <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm">
+      <h2 className="text-xl font-semibold text-white">{title}</h2>
+      <p className="mt-2 text-sm leading-7 text-white/45">{description}</p>
       <div className="mt-5 space-y-4">{children}</div>
     </section>
+  );
+}
+
+function SaveButton({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick: () => void | Promise<void>;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-[1.35rem] bg-[linear-gradient(135deg,#34d399,#4cc9f0)] px-7 py-4 text-base font-semibold text-slate-950 shadow-[0_18px_40px_rgba(76,201,240,0.18)]"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -74,14 +114,14 @@ function DashboardSettingsForm({
   restaurantId,
   restaurant,
   settings,
-  staff,
 }: {
   restaurantId: Id<"restaurants">;
   restaurant: Doc<"restaurants">;
   settings: RestaurantSettingsView;
-  staff: Doc<"users">[] | undefined;
 }) {
   const seed = buildFormSeed(restaurant, settings);
+  const aiSeed = readAiBehavior(restaurantId);
+
   const [googleUrl, setGoogleUrl] = useState(seed.googleUrl);
   const [sendDelay, setSendDelay] = useState(seed.sendDelay);
   const [birthdayEnabled, setBirthdayEnabled] = useState(seed.birthdayEnabled);
@@ -89,19 +129,22 @@ function DashboardSettingsForm({
   const [re30, setRe30] = useState(seed.re30);
   const [re60, setRe60] = useState(seed.re60);
   const [re90, setRe90] = useState(seed.re90);
-  const [kioskName, setKioskName] = useState(seed.kioskName);
-  const [kioskAccent, setKioskAccent] = useState(seed.kioskAccent);
-  const [kioskBg, setKioskBg] = useState(seed.kioskBg);
-  const [kioskLogo, setKioskLogo] = useState(seed.kioskLogo);
-  const [newStaffEmail, setNewStaffEmail] = useState("");
-  const [newStaffRole, setNewStaffRole] = useState<"OWNER" | "STAFF">("STAFF");
   const [saved, setSaved] = useState(false);
+
+  const [aiTone, setAiTone] = useState<AiBehaviorSettings["aiTone"]>(aiSeed.aiTone);
+  const [responseLength, setResponseLength] = useState<
+    AiBehaviorSettings["responseLength"]
+  >(aiSeed.responseLength);
+  const [autoApprove, setAutoApprove] = useState(aiSeed.autoApprove);
+  const [includeReviewLink, setIncludeReviewLink] = useState(
+    aiSeed.includeReviewLink
+  );
 
   const updateSettings = useMutation(api.dashboardMutations.updateRestaurantSettings);
 
   const flashSaved = () => {
     setSaved(true);
-    setTimeout(() => setSaved(false), 2200);
+    window.setTimeout(() => setSaved(false), 2000);
   };
 
   const saveRestaurantInfo = async () => {
@@ -122,14 +165,16 @@ function DashboardSettingsForm({
     flashSaved();
   };
 
-  const saveKioskBranding = async () => {
-    await updateSettings({
-      restaurantId,
-      kioskDisplayName: kioskName || undefined,
-      kioskAccentColor: kioskAccent || undefined,
-      kioskLogoUrl: kioskLogo || undefined,
-      kioskBgImageUrl: kioskBg || undefined,
-    });
+  const saveAiBehavior = () => {
+    window.localStorage.setItem(
+      `ai-behavior-${restaurantId}`,
+      JSON.stringify({
+        aiTone,
+        responseLength,
+        autoApprove,
+        includeReviewLink,
+      })
+    );
     flashSaved();
   };
 
@@ -137,86 +182,61 @@ function DashboardSettingsForm({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-white/28">
-            Workspace controls
-          </p>
-          <h1 className="mt-2 text-3xl font-light tracking-tight text-white">
+          <h1 className="text-3xl font-light tracking-tight text-white">
             Settings
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-7 text-white/42">
-            Configure reputation routing, kiosk branding, and daily outreach
-            rules so the product feels tailored to the business instead of generic.
+          <p className="mt-2 max-w-2xl text-sm leading-7 text-white/45">
+            Manage review routing, message behavior, and AI response style from
+            one place.
           </p>
         </div>
 
-        <div className="dashboard-surface rounded-[1.5rem] p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-white/28">
-            Recommended next step
-          </p>
-          <p className="mt-2 text-sm leading-7 text-white/52">
-            Follow the setup guide if this location is still being configured for
-            the first time.
-          </p>
-          <Link
-            href="/setup"
-            className="mt-4 inline-flex rounded-2xl border border-white/12 bg-white/4 px-4 py-2.5 text-sm font-medium text-white/82"
-          >
-            Open setup guide
-          </Link>
-        </div>
+        <Link
+          href="/setup"
+          className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 hover:text-white"
+        >
+          View setup guide
+        </Link>
       </div>
 
       <SectionCard
-        title="Restaurant info"
-        description="These values control review routing and core account identity."
+        title="Restaurant Info"
+        description="Control the review destination and location identity."
       >
         <div>
-          <label className="block text-sm text-white/48">Restaurant name</label>
+          <label className="block text-sm text-white/50">Restaurant name</label>
           <input
             type="text"
             value={restaurant.name}
             readOnly
-            className="mt-2 w-full rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-white/42"
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-white/45"
           />
-          <p className="mt-2 text-xs text-white/24">Only platform admin can change this field.</p>
         </div>
-
         <div>
-          <label className="block text-sm text-white/48">Google Business review URL</label>
+          <label className="block text-sm text-white/50">
+            Google Business Review URL
+          </label>
           <div className="mt-2 flex flex-col gap-3 lg:flex-row">
             <input
               type="url"
               value={googleUrl}
               onChange={(e) => setGoogleUrl(e.target.value)}
-              placeholder="https://..."
-              className="flex-1 rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-white placeholder:text-white/24"
+              className="flex-1 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-white"
             />
-            <a
-              href={googleUrl || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/12 bg-white/4 px-4 py-3 text-sm text-white/72"
-            >
-              Test link
-            </a>
+            <SaveButton onClick={saveRestaurantInfo}>
+              Save
+            </SaveButton>
           </div>
         </div>
-
-        <button
-          onClick={saveRestaurantInfo}
-          className="rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-5 py-3 text-sm font-semibold text-slate-950"
-        >
-          Save restaurant info
-        </button>
       </SectionCard>
 
       <SectionCard
-        title="Messaging rules"
-        description="Review the timing and message behavior guests will experience after each visit."
+        title="SMS Settings"
+        description="Timing and audience rules for reputation and retention messages."
       >
         <div>
-          <label className="block text-sm text-white/48">
-            Send delay: {sendDelay} minutes after visit
+          <label className="block text-sm text-white/50">
+            Send delay: {sendDelay} min after visit
           </label>
           <input
             type="range"
@@ -224,182 +244,121 @@ function DashboardSettingsForm({
             max={180}
             value={sendDelay}
             onChange={(e) => setSendDelay(Number(e.target.value))}
-            className="mt-3 w-full"
+            className="mt-2 w-full"
           />
         </div>
-
-        <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white/72">
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white/70">
           <input
             type="checkbox"
             checked={birthdayEnabled}
             onChange={(e) => setBirthdayEnabled(e.target.checked)}
           />
-          Enable birthday SMS
+          Birthday SMS
         </label>
-
         <div>
-          <label className="block text-sm text-white/48">Birthday template</label>
+          <label className="block text-sm text-white/50">
+            Birthday message template
+          </label>
           <textarea
             value={birthdayTemplate}
             onChange={(e) => setBirthdayTemplate(e.target.value)}
-            placeholder={BIRTHDAY_DEFAULT}
-            rows={4}
-            className="mt-2 w-full rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white"
+            rows={3}
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white"
           />
         </div>
-
         <div className="grid gap-3 md:grid-cols-3">
           {[
-            { label: "30 day re-engagement", checked: re30, setChecked: setRe30 },
-            { label: "60 day re-engagement", checked: re60, setChecked: setRe60 },
-            { label: "90 day re-engagement", checked: re90, setChecked: setRe90 },
+            { label: "30 days", checked: re30, onChange: setRe30 },
+            { label: "60 days", checked: re60, onChange: setRe60 },
+            { label: "90 days", checked: re90, onChange: setRe90 },
           ].map((item) => (
             <label
               key={item.label}
-              className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white/72"
+              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white/70"
             >
               <input
                 type="checkbox"
                 checked={item.checked}
-                onChange={(e) => item.setChecked(e.target.checked)}
+                onChange={(e) => item.onChange(e.target.checked)}
               />
               {item.label}
             </label>
           ))}
         </div>
-
-        <button
-          onClick={saveSmsSettings}
-          className="rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-5 py-3 text-sm font-semibold text-slate-950"
-        >
-          Save messaging rules
-        </button>
+        <SaveButton onClick={saveSmsSettings}>
+          Save
+        </SaveButton>
       </SectionCard>
 
       <SectionCard
-        title="Kiosk branding"
-        description="Customize the guest-facing kiosk so it feels like part of the business."
+        title="AI Behavior"
+        description="Adjust how AI-generated review and apology responses feel."
       >
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div>
-            <label className="block text-sm text-white/48">Kiosk display name</label>
-            <input
-              type="text"
-              value={kioskName}
-              onChange={(e) => setKioskName(e.target.value)}
-              className="mt-2 w-full rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-white/48">Accent color</label>
-            <div className="mt-2 flex gap-3">
-              <input
-                type="color"
-                value={kioskAccent}
-                onChange={(e) => setKioskAccent(e.target.value)}
-                className="h-12 w-16 rounded-xl border-0 bg-transparent"
-              />
-              <input
-                type="text"
-                value={kioskAccent}
-                onChange={(e) => setKioskAccent(e.target.value)}
-                className="flex-1 rounded-2xl border border-white/8 bg-white/4 px-4 py-3 font-mono text-sm text-white"
-              />
-            </div>
-          </div>
-        </div>
-
         <div>
-          <label className="block text-sm text-white/48">Logo URL</label>
-          <input
-            type="url"
-            value={kioskLogo}
-            onChange={(e) => setKioskLogo(e.target.value)}
-            className="mt-2 w-full rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-white"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm text-white/48">Background image URL</label>
-          <input
-            type="url"
-            value={kioskBg}
-            onChange={(e) => setKioskBg(e.target.value)}
-            placeholder="https://..."
-            className="mt-2 w-full rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-white placeholder:text-white/24"
-          />
-          <p className="mt-2 text-xs text-white/24">
-            Use a direct image URL for a richer kiosk background.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            onClick={saveKioskBranding}
-            className="rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-5 py-3 text-sm font-semibold text-slate-950"
-          >
-            Save kiosk branding
-          </button>
-          <Link
-            href={`/kiosk/${restaurant.slug}`}
-            target="_blank"
-            className="inline-flex items-center justify-center rounded-2xl border border-white/12 bg-white/4 px-5 py-3 text-sm font-medium text-white/82"
-          >
-            Preview kiosk
-          </Link>
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Staff accounts"
-        description="This is the team access area. Invites are still placeholder-level until Clerk invite flows are wired up."
-      >
-        <div className="space-y-3">
-          {staff?.map((member) => (
-            <div
-              key={member._id}
-              className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"
-            >
-              <div>
-                <p className="text-sm font-medium text-white">{member.email}</p>
-                <p className="mt-1 text-xs text-white/28">{member.role}</p>
-              </div>
-              <button className="text-sm text-red-300 hover:text-red-200">
-                Remove
+          <p className="text-sm text-white/50">Tone</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {(["Friendly", "Professional", "Casual"] as const).map((tone) => (
+              <button
+                key={tone}
+                type="button"
+                onClick={() => setAiTone(tone)}
+                className={`rounded-xl px-4 py-2 text-sm ${
+                  aiTone === tone
+                    ? "border border-emerald-500/20 bg-emerald-500/20 text-emerald-400"
+                    : "border border-white/10 text-white/50"
+                }`}
+              >
+                {tone}
               </button>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+        <div>
+          <p className="text-sm text-white/50">Response length</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {(["Short", "Medium", "Detailed"] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setResponseLength(item)}
+                className={`rounded-xl px-4 py-2 text-sm ${
+                  responseLength === item
+                    ? "border border-emerald-500/20 bg-emerald-500/20 text-emerald-400"
+                    : "border border-white/10 text-white/50"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white/70">
           <input
-            type="email"
-            placeholder="staff@example.com"
-            value={newStaffEmail}
-            onChange={(e) => setNewStaffEmail(e.target.value)}
-            className="rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white placeholder:text-white/24"
+            type="checkbox"
+            checked={autoApprove}
+            onChange={(e) => setAutoApprove(e.target.checked)}
           />
-          <select
-            value={newStaffRole}
-            onChange={(e) => setNewStaffRole(e.target.value as "OWNER" | "STAFF")}
-            className="rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white"
-          >
-            <option value="STAFF">Staff</option>
-            <option value="OWNER">Owner</option>
-          </select>
-          <button className="rounded-2xl border border-white/12 bg-white/4 px-4 py-3 text-sm font-medium text-white/72">
-            Add staff
-          </button>
-        </div>
+          Automatically approve 5-star review requests
+        </label>
 
-        <p className="text-xs text-white/24">
-          Staff invites still require Clerk invite wiring. For now, this section
-          is best treated as a UI placeholder.
-        </p>
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white/70">
+          <input
+            type="checkbox"
+            checked={includeReviewLink}
+            onChange={(e) => setIncludeReviewLink(e.target.checked)}
+          />
+          Include Google review link in replies
+        </label>
+
+        <SaveButton onClick={saveAiBehavior}>
+          Save
+        </SaveButton>
       </SectionCard>
 
       {saved && (
-        <p className="fixed bottom-4 right-4 rounded-2xl bg-emerald-400 px-4 py-2 text-sm font-medium text-slate-950">
+        <p className="fixed bottom-4 right-4 rounded-xl border border-emerald-500/20 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-400">
           Saved
         </p>
       )}
@@ -417,14 +376,10 @@ export default function SettingsPage() {
     api.queries.getRestaurantSettings,
     restaurantId ? { restaurantId } : "skip"
   );
-  const staff = useQuery(
-    api.queries.getStaff,
-    restaurantId ? { restaurantId } : "skip"
-  );
 
   if (!restaurantId || restaurant === undefined || settings === undefined) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-20">
         <p className="text-zinc-500">Loading...</p>
       </div>
     );
@@ -438,7 +393,6 @@ export default function SettingsPage() {
       restaurantId={restaurantId}
       restaurant={restaurant}
       settings={settings}
-      staff={staff}
     />
   );
 }

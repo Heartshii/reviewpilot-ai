@@ -1,55 +1,48 @@
-import Link from "next/link";
+import { TrustPageShell } from "@/components/trust-page-shell";
 
 const sections = [
   {
-    title: "What ReviewPilot stores",
-    body: "ReviewPilot stores business account information, guest check-in details, consent-aware SMS fields, rating and feedback activity, and branding/settings data needed to operate the kiosk and dashboard.",
+    title: "1. Information we collect",
+    body: "We collect restaurant account information, guest details such as name, phone number, and email where provided, as well as business setup data including review links, kiosk branding, and outreach preferences.",
   },
   {
-    title: "How guest data is used",
-    body: "Guest information is used to power visit tracking, review requests, private recovery messages, loyalty activity, and approved business outreach such as birthdays or re-engagement campaigns.",
+    title: "2. How we use information",
+    body: "We use collected information to deliver SMS flows, power analytics, improve product quality, support review and feedback routing, and provide the restaurant dashboard and admin controls.",
   },
   {
-    title: "SMS expectations",
-    body: "Businesses using ReviewPilot are responsible for collecting permission before sending promotional or operational messages. ReviewPilot supports opt-out language and workflows, but proper use remains the business owner's responsibility.",
+    title: "3. SMS consent",
+    body: "Restaurants using ReviewPilot are responsible for obtaining consent before sending SMS messages. Guests can opt out by replying STOP, and businesses should honor all applicable messaging laws and policies.",
   },
   {
-    title: "Operational access",
-    body: "Restaurant owners, staff, and platform admins may access account information based on their role. Businesses should remove access when team responsibilities change.",
+    title: "4. Data retention and deletion",
+    body: "We retain information for as long as needed to operate the service, maintain account history, and satisfy legal or operational obligations. Restaurants may request deletion of account-related data subject to legal retention requirements.",
+  },
+  {
+    title: "5. Third-party services",
+    body: "ReviewPilot relies on third-party providers including Twilio for messaging, Convex for backend infrastructure, and Clerk for authentication. These providers process data only to the extent needed to deliver the service.",
+  },
+  {
+    title: "6. Privacy requests",
+    body: "For privacy-related requests, including deletion or access requests, contact support@reviewpilot.ai. We will review and respond as reasonably possible.",
   },
 ];
 
 export default function PrivacyPage() {
   return (
-    <main className="page-shell px-2 py-16 text-white">
-      <div className="mx-auto max-w-4xl">
-        <span className="section-label">Privacy</span>
-        <h1 className="mt-6 text-5xl font-semibold leading-tight">
-          ReviewPilot privacy overview
-        </h1>
-        <p className="mt-5 max-w-3xl text-lg leading-8 text-white/58">
-          This page is a simple product-facing privacy summary. It should still be
-          reviewed and finalized with proper legal language before wide commercial use.
-        </p>
-
-        <div className="mt-10 space-y-5">
-          {sections.map((section) => (
-            <section
-              key={section.title}
-              className="glass-panel rounded-[1.8rem] p-6"
-            >
-              <h2 className="text-2xl font-semibold text-white">{section.title}</h2>
-              <p className="mt-4 text-sm leading-8 text-white/58">{section.body}</p>
-            </section>
-          ))}
-        </div>
-
-        <div className="mt-8">
-          <Link href="/terms" className="text-sm text-emerald-300 hover:text-emerald-200">
-            Read terms
-          </Link>
-        </div>
-      </div>
-    </main>
+    <TrustPageShell
+      eyebrow="Privacy Policy"
+      title="ReviewPilot AI Privacy Policy"
+      description="Last updated: April 21, 2026. This privacy policy explains what information ReviewPilot AI collects, how it is used, and the choices restaurants and customers have when using the platform."
+    >
+      {sections.map((section) => (
+        <section
+          key={section.title}
+          className="rounded-2xl border border-white/5 bg-white/[0.02] p-6"
+        >
+          <h2 className="text-2xl font-semibold text-white">{section.title}</h2>
+          <p className="mt-4 text-sm leading-8 text-white/58">{section.body}</p>
+        </section>
+      ))}
+    </TrustPageShell>
   );
 }

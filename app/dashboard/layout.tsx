@@ -8,6 +8,7 @@ import { useRestaurantId } from "@/hooks/useRestaurantId";
 const nav = [
   { href: "/dashboard", label: "Overview", badge: "OV" },
   { href: "/dashboard/customers", label: "Customers", badge: "CU" },
+  { href: "/dashboard/reviews", label: "Reviews", badge: "★" },
   { href: "/dashboard/sms", label: "SMS Center", badge: "SM" },
   { href: "/dashboard/settings", label: "Settings", badge: "SE" },
 ];
@@ -22,7 +23,10 @@ export default function DashboardLayout({
 
   if (!restaurantId) {
     return (
-      <div suppressHydrationWarning={true} className="flex min-h-screen items-center justify-center bg-transparent text-white">
+      <div
+        suppressHydrationWarning={true}
+        className="flex min-h-screen items-center justify-center bg-transparent text-white"
+      >
         <p className="text-zinc-400">Loading...</p>
       </div>
     );
@@ -49,6 +53,7 @@ export default function DashboardLayout({
           <nav className="mt-4 space-y-2">
             {nav.map((item) => {
               const active = pathname === item.href;
+
               return (
                 <Link
                   key={item.href}
