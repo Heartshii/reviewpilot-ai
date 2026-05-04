@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignOutButton } from "@clerk/nextjs";
+import { SignOutButton, useAuth } from "@clerk/nextjs";
+import { useEnsureUser } from "@/hooks/useEnsureUser";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 
 const nav = [
   { href: "/dashboard", label: "Overview", badge: "OV" },
   { href: "/dashboard/customers", label: "Customers", badge: "CU" },
-  { href: "/dashboard/reviews", label: "Reviews", badge: "★" },
+  { href: "/dashboard/reviews", label: "Reviews", badge: "RV" },
   { href: "/dashboard/sms", label: "SMS Center", badge: "SM" },
+  { href: "/dashboard/billing", label: "Billing", badge: "BI" },
   { href: "/dashboard/settings", label: "Settings", badge: "SE" },
 ];
 
@@ -20,8 +22,55 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const restaurantId = useRestaurantId();
+  const { userId } = useAuth();
+  const { convexUser, isLoading } = useEnsureUser();
 
-  if (!restaurantId) {
+  if (userId && (isLoading || convexUser === undefined)) {
+    return (
+      <div
+        suppressHydrationWarning={true}
+        className="flex min-h-screen items-center justify-center bg-transparent text-white"
+      >
+        <p className="text-zinc-400">Loading workspace...</p>
+      </div>
+    );
+  }
+
+  if (userId && convexUser && !restaurantId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-transparent px-6 text-white">
+        <div className="w-full max-w-xl rounded-[2rem] border border-white/8 bg-white/[0.03] p-8 text-center backdrop-blur-xl">
+          <p className="text-xs uppercase tracking-[0.16em] text-white/30">
+            Setup required
+          </p>
+          <h1 className="mt-4 text-3xl font-semibold text-white">
+            Finish creating your business workspace
+          </h1>
+          <p className="mt-4 text-sm leading-7 text-white/58">
+            Your account is signed in, but it is not attached to a business
+            workspace yet. Complete onboarding first, then come back to the
+            dashboard.
+          </p>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link
+              href="/setup"
+              className="rounded-2xl bg-[linear-gradient(135deg,#34d399,#38bdf8)] px-5 py-3 text-sm font-semibold text-slate-950"
+            >
+              Open setup
+            </Link>
+            <Link
+              href="/"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm text-white/72"
+            >
+              Back to home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userId && !restaurantId) {
     return (
       <div
         suppressHydrationWarning={true}
@@ -86,10 +135,10 @@ export default function DashboardLayout({
             <p className="text-xs uppercase tracking-[0.16em] text-white/30">
               Daily focus
             </p>
-            <p className="mt-2 text-sm leading-7 text-white/58">
-              Check approvals, monitor SMS usage, and review customer activity in
-              one pass.
-            </p>
+              <p className="mt-2 text-sm leading-7 text-white/58">
+                Check approvals, monitor SMS usage, review customer activity, and
+                stay on top of billing from one place.
+              </p>
           </div>
 
           <div className="mt-4 border-t border-white/6 pt-4">
@@ -111,7 +160,8 @@ export default function DashboardLayout({
                 ReviewPilot workspace
               </p>
               <p className="mt-1 text-sm text-white/52">
-                A calmer place to manage review growth, recovery, and retention
+                A calmer place to manage review growth, recovery, retention, and
+                billing
               </p>
             </div>
             <div className="hidden items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-200 sm:flex">

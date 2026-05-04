@@ -7,7 +7,7 @@ export default function ContactPage() {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    restaurantName: "",
+    businessName: "",
     message: "",
   });
 
@@ -15,7 +15,7 @@ export default function ContactPage() {
     <TrustPageShell
       eyebrow="Contact"
       title="Get in Touch"
-      description="Tell us about your restaurant, current review process, and what you want to improve. We will point you in the right direction."
+      description="Tell us about your business, current customer follow-up process, and what you want to improve. We will point you in the right direction."
     >
       <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
         <div className="grid gap-4 md:grid-cols-2">
@@ -32,11 +32,11 @@ export default function ContactPage() {
             className="rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white placeholder:text-white/30"
           />
           <input
-            value={form.restaurantName}
+            value={form.businessName}
             onChange={(e) =>
-              setForm((prev) => ({ ...prev, restaurantName: e.target.value }))
+              setForm((prev) => ({ ...prev, businessName: e.target.value }))
             }
-            placeholder="Restaurant Name"
+            placeholder="Business Name"
             className="rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white placeholder:text-white/30 md:col-span-2"
           />
           <textarea

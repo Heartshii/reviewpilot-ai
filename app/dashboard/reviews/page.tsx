@@ -32,12 +32,14 @@ export default function ReviewsPage() {
     api.queries.getSmsHistory,
     restaurantId ? { restaurantId } : "skip"
   );
+  type PendingRow = NonNullable<typeof pending>[number];
+  type HistoryRow = NonNullable<typeof history>[number];
   const approveSms = useAction(api.sms.approveSms);
   const dismissSms = useMutation(api.dashboardMutations.dismissSms);
 
   const feedbackCards = useMemo(() => {
     const pendingItems =
-      pending?.map((item) => ({
+      pending?.map((item: PendingRow) => ({
         id: item._id,
         customerName: item.customerName,
         rating: item.rating || 2,
@@ -47,8 +49,8 @@ export default function ReviewsPage() {
 
     const historyItems =
       history
-        ?.filter((item) => item.smsType === "APOLOGY")
-        .map((item) => ({
+        ?.filter((item: HistoryRow) => item.smsType === "APOLOGY")
+        .map((item: HistoryRow) => ({
           id: item._id,
           customerName: item.customerName,
           rating: 2,
@@ -58,7 +60,8 @@ export default function ReviewsPage() {
 
     const merged = [...pendingItems, ...historyItems];
     return merged.filter(
-      (item, index, arr) => arr.findIndex((other) => other.id === item.id) === index
+      (item, index, arr) =>
+        arr.findIndex((other) => other.id === item.id) === index
     );
   }, [history, pending]);
 

@@ -32,6 +32,10 @@ export const getRestaurantBySlug = query({
         reengagement30: true,
         reengagement60: true,
         reengagement90: true,
+        aiTone: "Friendly",
+        responseLength: "Medium",
+        autoApprove: false,
+        includeReviewLink: true,
         ...settings,
       },
     };
@@ -85,6 +89,10 @@ export const getRestaurantSettings = query({
         reengagement30: true,
         reengagement60: true,
         reengagement90: true,
+        aiTone: "Friendly",
+        responseLength: "Medium",
+        autoApprove: false,
+        includeReviewLink: true,
       }
     );
   },
@@ -422,5 +430,233 @@ export const getSmsHistory = query({
       })
     );
     return result;
+  },
+});
+
+export const getAiInsightsSnapshot = query({
+  args: { restaurantId: v.id("restaurants") },
+  handler: async (ctx, { restaurantId }) => {
+    const restaurant = await ctx.db.get(restaurantId);
+    if (!restaurant) throw new Error("Restaurant not found");
+
+    const now = Date.now();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    const currentWeekStart = now - weekMs;
+    const previousWeekStart = now - weekMs * 2;
+    const monthStart = startOfMonth();
+    const sixtyDays = sixtyDaysAgo();
+
+    const [customers, feedbacks, receipts, smsLogs] = await Promise.all([
+      ctx.db
+        .query("customers")
+        .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+        .collect(),
+      ctx.db
+        .query("feedback")
+        .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+        .collect(),
+      ctx.db
+        .query("receipts")
+        .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+        .collect(),
+      ctx.db
+        .query("smsLogs")
+        .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+        .collect(),
+    ]);
+
+    const currentWeekFeedback = feedbacks.filter(
+      (feedback) => feedback.createdAt >= currentWeekStart
+    );
+    const previousWeekFeedback = feedbacks.filter(
+      (feedback) =>
+        feedback.createdAt >= previousWeekStart &&
+        feedback.createdAt < currentWeekStart
+    );
+    const currentWeekNewCustomers = customers.filter(
+      (customer) => customer.createdAt >= currentWeekStart
+    ).length;
+    const previousWeekNewCustomers = customers.filter(
+      (customer) =>
+        customer.createdAt >= previousWeekStart &&
+        customer.createdAt < currentWeekStart
+    ).length;
+
+    const averageCurrentWeekRating =
+      currentWeekFeedback.length > 0
+        ? currentWeekFeedback.reduce((sum, feedback) => sum + feedback.rating, 0) /
+          currentWeekFeedback.length
+        : 0;
+    const averagePreviousWeekRating =
+      previousWeekFeedback.length > 0
+        ? previousWeekFeedback.reduce((sum, feedback) => sum + feedback.rating, 0) /
+          previousWeekFeedback.length
+        : 0;
+
+    const latestFeedbackByCustomer = new Map<
+      string,
+      { rating: number; createdAt: number }
+    >();
+    for (const feedback of feedbacks) {
+      if (!feedback.customerId) continue;
+      const existing = latestFeedbackByCustomer.get(feedback.customerId);
+      if (!existing || feedback.createdAt > existing.createdAt) {
+        latestFeedbackByCustomer.set(feedback.customerId, {
+          rating: feedback.rating,
+          createdAt: feedback.createdAt,
+        });
+      }
+    }
+
+    const inactiveCount = customers.filter((customer) => {
+      const lastVisit = customer.lastVisitAt ?? customer.createdAt;
+      return lastVisit < sixtyDays;
+    }).length;
+    const loyalCount = customers.filter((customer) => customer.visitCount >= 5).length;
+    const atRiskCount = customers.filter((customer) => {
+      const latest = latestFeedbackByCustomer.get(customer._id);
+      return latest ? latest.rating <= 3 : false;
+    }).length;
+    const vipCount = customers.filter((customer) => customer.points >= 200).length;
+
+    const trackedSpend = receipts.reduce(
+      (sum, receipt) => sum + receipt.billAmount,
+      0
+    );
+    const trackedCustomers = new Set(receipts.map((receipt) => receipt.customerId)).size;
+    const averageSpendPerTrackedCustomer =
+      trackedCustomers > 0 ? trackedSpend / trackedCustomers : 0;
+    const averageVisits =
+      customers.length > 0
+        ? customers.reduce((sum, customer) => sum + customer.visitCount, 0) /
+          customers.length
+        : 0;
+
+    const smsSentThisMonth = smsLogs.filter(
+      (log) => log.sentAt >= monthStart && log.status === "SENT"
+    ).length;
+    const failedSmsThisMonth = smsLogs.filter(
+      (log) => log.sentAt >= monthStart && log.status === "FAILED"
+    ).length;
+    const pendingApprovals = smsLogs.filter(
+      (log) => log.status === "PENDING_APPROVAL"
+    ).length;
+    const reviewRequestsThisMonth = smsLogs.filter(
+      (log) => log.sentAt >= monthStart && log.smsType === "GOOGLE_REVIEW" && log.status === "SENT"
+    ).length;
+    const reengagementSentThisMonth = smsLogs.filter(
+      (log) =>
+        log.sentAt >= monthStart &&
+        log.smsType === "REENGAGEMENT" &&
+        log.status === "SENT"
+    ).length;
+    const birthdaySentThisMonth = smsLogs.filter(
+      (log) =>
+        log.sentAt >= monthStart &&
+        log.smsType === "BIRTHDAY" &&
+        log.status === "SENT"
+    ).length;
+
+    const ratingDelta =
+      averageCurrentWeekRating > 0 && averagePreviousWeekRating > 0
+        ? averageCurrentWeekRating - averagePreviousWeekRating
+        : averageCurrentWeekRating > 0
+          ? averageCurrentWeekRating
+          : 0;
+
+    const customerGrowthDelta = currentWeekNewCustomers - previousWeekNewCustomers;
+    const reviewConversionRate =
+      smsSentThisMonth > 0
+        ? Math.round((reviewRequestsThisMonth / smsSentThisMonth) * 100)
+        : 0;
+    const smsUsagePercent =
+      restaurant.smsLimit > 0
+        ? Math.round((restaurant.smsUsed / restaurant.smsLimit) * 100)
+        : 0;
+
+    const weeklyTrend = Array.from({ length: 6 }, (_, index) => {
+      const weeksAgo = 5 - index;
+      const start = now - weekMs * (weeksAgo + 1);
+      const end = now - weekMs * weeksAgo;
+      const bucketFeedback = feedbacks.filter(
+        (feedback) => feedback.createdAt >= start && feedback.createdAt < end
+      );
+      const bucketCustomers = customers.filter(
+        (customer) => customer.createdAt >= start && customer.createdAt < end
+      );
+      const bucketSms = smsLogs.filter(
+        (log) => log.sentAt >= start && log.sentAt < end && log.status === "SENT"
+      );
+
+      const avgRating =
+        bucketFeedback.length > 0
+          ? bucketFeedback.reduce((sum, feedback) => sum + feedback.rating, 0) /
+            bucketFeedback.length
+          : 0;
+
+      return {
+        label: weeksAgo === 0 ? "This week" : `${weeksAgo}w ago`,
+        rating: Number(avgRating.toFixed(1)),
+        feedback: bucketFeedback.length,
+        newCustomers: bucketCustomers.length,
+        sms: bucketSms.length,
+      };
+    });
+
+    let recommendedSegment: "INACTIVE" | "LOYAL" | "ATRISK" | "NEW" | "ALL" = "ALL";
+    let recommendationTitle = "Keep the core funnel running";
+    let recommendationBody =
+      "Your main growth lever is still consistent check-ins, fast approvals, and steady review routing.";
+
+    if (inactiveCount > 0) {
+      recommendedSegment = "INACTIVE";
+      recommendationTitle = "Bring back inactive customers";
+      recommendationBody = `${inactiveCount} customers have gone quiet. A simple comeback offer or reminder message is your clearest win right now.`;
+    } else if (atRiskCount > 0) {
+      recommendedSegment = "ATRISK";
+      recommendationTitle = "Recover unhappy customers first";
+      recommendationBody = `${atRiskCount} customers are currently at risk. Fast follow-up here protects both retention and public reputation.`;
+    } else if (loyalCount > 0) {
+      recommendedSegment = "LOYAL";
+      recommendationTitle = "Promote reviews from loyal customers";
+      recommendationBody = `${loyalCount} loyal customers already trust the business. They are the best group for review and referral asks.`;
+    } else if (currentWeekNewCustomers > 0) {
+      recommendedSegment = "NEW";
+      recommendationTitle = "Nurture new customers early";
+      recommendationBody = `${currentWeekNewCustomers} new customers arrived this week. Early follow-up is the fastest way to turn first visits into repeat business.`;
+    }
+
+    return {
+      totalCustomers: customers.length,
+      inactiveCount,
+      loyalCount,
+      atRiskCount,
+      vipCount,
+      trackedSpend,
+      trackedCustomers,
+      averageSpendPerTrackedCustomer,
+      averageVisits,
+      smsSentThisMonth,
+      failedSmsThisMonth,
+      pendingApprovals,
+      reviewRequestsThisMonth,
+      reengagementSentThisMonth,
+      birthdaySentThisMonth,
+      averageCurrentWeekRating: Number(averageCurrentWeekRating.toFixed(1)),
+      averagePreviousWeekRating: Number(averagePreviousWeekRating.toFixed(1)),
+      ratingDelta: Number(ratingDelta.toFixed(1)),
+      currentWeekNewCustomers,
+      previousWeekNewCustomers,
+      customerGrowthDelta,
+      negativeFeedbackThisWeek: currentWeekFeedback.filter(
+        (feedback) => feedback.rating <= 3
+      ).length,
+      reviewConversionRate,
+      smsUsagePercent,
+      recommendedSegment,
+      recommendationTitle,
+      recommendationBody,
+      weeklyTrend,
+    };
   },
 });

@@ -1,19 +1,55 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const businessType = v.union(
+  v.literal("RESTAURANT"),
+  v.literal("DENTAL_CLINIC"),
+  v.literal("GROCERY_STORE"),
+  v.literal("SALON_SPA"),
+  v.literal("FITNESS_STUDIO"),
+  v.literal("HOME_SERVICE"),
+  v.literal("AUTOMOTIVE_SERVICE"),
+  v.literal("RETAIL_STORE"),
+  v.literal("PROFESSIONAL_SERVICE"),
+  v.literal("GENERAL_SERVICE")
+);
+
 export default defineSchema({
   restaurants: defineTable({
     name: v.string(),
     slug: v.string(),
+    businessType: v.optional(businessType),
+    businessSubtype: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    websiteUrl: v.optional(v.string()),
     tier: v.number(),
     smsLimit: v.number(),
     smsUsed: v.number(),
     overageRate: v.number(),
     googleBusinessUrl: v.optional(v.string()),
     twilioNumber: v.optional(v.string()),
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    stripePriceId: v.optional(v.string()),
+    subscriptionStatus: v.optional(
+      v.union(
+        v.literal("TRIALING"),
+        v.literal("ACTIVE"),
+        v.literal("PAST_DUE"),
+        v.literal("CANCELED"),
+        v.literal("UNPAID"),
+        v.literal("INCOMPLETE"),
+        v.literal("INCOMPLETE_EXPIRED")
+      )
+    ),
+    subscriptionCurrentPeriodEnd: v.optional(v.number()),
+    trialEndsAt: v.optional(v.number()),
+    cancelAtPeriodEnd: v.optional(v.boolean()),
     active: v.boolean(),
   })
     .index("by_twilioNumber", ["twilioNumber"])
+    .index("by_stripeCustomerId", ["stripeCustomerId"])
+    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"])
     .index("by_slug", ["slug"]),
 
   users: defineTable({
@@ -35,6 +71,22 @@ export default defineSchema({
     reengagement30: v.boolean(),
     reengagement60: v.boolean(),
     reengagement90: v.boolean(),
+    aiTone: v.optional(
+      v.union(
+        v.literal("Friendly"),
+        v.literal("Professional"),
+        v.literal("Casual")
+      )
+    ),
+    responseLength: v.optional(
+      v.union(
+        v.literal("Short"),
+        v.literal("Medium"),
+        v.literal("Detailed")
+      )
+    ),
+    autoApprove: v.optional(v.boolean()),
+    includeReviewLink: v.optional(v.boolean()),
     kioskAccentColor: v.optional(v.string()),
     kioskLogoUrl: v.optional(v.string()),
     kioskDisplayName: v.optional(v.string()),

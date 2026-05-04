@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { CustomerDrawer } from "@/components/CustomerDrawer";
+import { getBusinessLabels, titleCaseLabel } from "@/lib/business-copy";
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-US", {
@@ -82,11 +83,18 @@ export default function CustomersPage() {
     api.queries.getCustomers,
     restaurantId ? { restaurantId } : "skip"
   );
+  const restaurant = useQuery(
+    api.queries.getRestaurant,
+    restaurantId ? { restaurantId } : "skip"
+  );
+  type CustomerRow = NonNullable<typeof customers>[number];
 
   const drawerIdFromSearch = useMemo(() => {
     const customerId = searchParams.get("customerId");
     if (!customerId || !customers) return null;
-    const match = customers.find((customer) => customer._id === customerId);
+    const match = customers.find(
+      (customer: CustomerRow) => customer._id === customerId
+    );
     return match?._id ?? null;
   }, [customers, searchParams]);
 
@@ -110,13 +118,16 @@ export default function CustomersPage() {
     if (!customers) return [];
     const q = search.toLowerCase();
     return customers.filter(
-      (customer) =>
+      (customer: CustomerRow) =>
         customer.name.toLowerCase().includes(q) || customer.phone.includes(q)
     );
   }, [customers, search]);
 
   const selected =
-    activeDrawerId && customers?.find((customer) => customer._id === activeDrawerId);
+    activeDrawerId &&
+    customers?.find((customer: CustomerRow) => customer._id === activeDrawerId);
+
+  const labels = getBusinessLabels(restaurant?.businessType);
 
   if (!restaurantId) return null;
 
@@ -131,9 +142,9 @@ export default function CustomersPage() {
     );
   }
 
-  const loyalCount = filtered.filter((customer) => customer.isLoyal).length;
+  const loyalCount = filtered.filter((customer: CustomerRow) => customer.isLoyal).length;
   const totalRevenue = filtered.reduce(
-    (sum, customer) => sum + customer.totalSpent,
+    (sum: number, customer: CustomerRow) => sum + customer.totalSpent,
     0
   );
   const loyalRate = filtered.length > 0 ? (loyalCount / filtered.length) * 100 : 0;
@@ -146,19 +157,20 @@ export default function CustomersPage() {
           Customer memory
         </p>
         <h1 className="mt-2 text-3xl font-light tracking-tight text-white">
-          Customers
+          {titleCaseLabel(labels.customerLabelPlural)}
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-7 text-white/42">
-          Review visit count, lifetime spend, loyalty points, and guest
-          sentiment before launching campaigns or approving recovery outreach.
+          Review {labels.visitLabel} count, lifetime spend, loyalty points, and{" "}
+          {labels.customerLabel} sentiment before launching campaigns or
+          approving recovery outreach.
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <MetricCard
-          label="Customers"
+          label={titleCaseLabel(labels.customerLabelPlural)}
           value={filtered.length.toString()}
-          helper="Guests in current view"
+          helper={`${titleCaseLabel(labels.customerLabelPlural)} in current view`}
         />
         <MetricCard
           label="Loyal"
@@ -177,9 +189,12 @@ export default function CustomersPage() {
       <div className="dashboard-surface rounded-[1.75rem] p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-white/76">Guest directory</p>
+            <p className="text-sm font-medium text-white/76">
+              {titleCaseLabel(labels.customerLabel)} directory
+            </p>
             <p className="mt-1 text-xs text-white/34">
-              Click any customer to open visit history, loyalty points, SMS
+              Click any {labels.customerLabel} to open {labels.visitLabel}
+              history, loyalty points, SMS
               history, and bill-based receipt details.
             </p>
           </div>
@@ -204,7 +219,7 @@ export default function CustomersPage() {
           </div>
 
           <div className="divide-y divide-white/6">
-            {filtered.map((customer) => {
+            {filtered.map((customer: CustomerRow) => {
               const status = statusLabel(customer);
 
               return (

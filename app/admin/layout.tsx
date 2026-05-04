@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignOutButton } from "@clerk/nextjs";
+import { SignOutButton, useUser } from "@clerk/nextjs";
+import { useIsClient } from "@/hooks/useIsClient";
 
 const nav = [
   { href: "/admin", label: "Overview", badge: "OV" },
@@ -16,6 +18,25 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isClient = useIsClient();
+  const { user, isLoaded } = useUser();
+  const needsAdminSync =
+    isLoaded && !!user && user.publicMetadata?.role !== "SUPER_ADMIN";
+  const todayLabel = isClient
+    ? new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "Live platform overview";
+
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    if (user.publicMetadata?.role === "SUPER_ADMIN") return;
+
+    void fetch("/api/admin/sync-role", { method: "POST" }).catch(() => undefined);
+  }, [isLoaded, user]);
 
   return (
     <div className="min-h-screen bg-transparent text-white lg:grid lg:grid-cols-[300px_1fr]">
@@ -94,14 +115,12 @@ export default function AdminLayout({
               <p className="text-xs uppercase tracking-[0.16em] text-white/28">
                 Platform control room
               </p>
-              <p className="mt-1 text-sm text-white/52">
-                {new Date().toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
+              <p className="mt-1 text-sm text-white/52">{todayLabel}</p>
+              {needsAdminSync && (
+                <p className="mt-1 text-xs text-emerald-200/70">
+                  Syncing admin access...
+                </p>
+              )}
             </div>
             <div className="hidden items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-200 sm:flex">
               <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />

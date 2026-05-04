@@ -12,6 +12,12 @@ crons.daily(
   internal.crons.runBirthdaySms
 );
 
+crons.daily(
+  "reengagement-sms",
+  { hourUTC: 15, minuteUTC: 0 },
+  internal.crons.runReengagementSms
+);
+
 export default crons;
 
 export const runBirthdaySms = internalAction({
@@ -42,5 +48,39 @@ export const getBirthdayCustomers = internalQuery({
           c.optedInSms
       )
       .map((c) => c._id);
+  },
+});
+
+export const runReengagementSms = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    for (const days of [30, 60, 90] as const) {
+      const customerIds = await ctx.runQuery(
+        internal.crons.getReengagementCustomers,
+        { days }
+      );
+
+      for (const customerId of customerIds) {
+        await ctx.runAction(api.sms.sendReengagementSms, { customerId, days });
+      }
+    }
+  },
+});
+
+export const getReengagementCustomers = internalQuery({
+  args: { days: v.union(v.literal(30), v.literal(60), v.literal(90)) },
+  handler: async (ctx, { days }) => {
+    const now = Date.now();
+    const windowEnd = now - days * 24 * 60 * 60 * 1000;
+    const windowStart = windowEnd - 24 * 60 * 60 * 1000;
+    const customers = await ctx.db.query("customers").collect();
+
+    return customers
+      .filter((customer) => {
+        if (!customer.optedInSms) return false;
+        const lastVisitAt = customer.lastVisitAt ?? customer.createdAt;
+        return lastVisitAt >= windowStart && lastVisitAt < windowEnd;
+      })
+      .map((customer) => customer._id);
   },
 });

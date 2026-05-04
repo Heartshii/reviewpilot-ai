@@ -20,7 +20,7 @@ export function useEnsureUser() {
 
     // Only create if doesn't exist yet
     if (convexUser === null) {
-      ensureUser({
+      void ensureUser({
         clerkId: user.id,
         email: user.emailAddresses[0]?.emailAddress ?? "",
         role: "OWNER", // default role, admin can change later

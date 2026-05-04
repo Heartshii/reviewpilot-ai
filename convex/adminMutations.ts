@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { getPlanByTier } from "../lib/billing-plans";
 
 export const updateRestaurantTier = mutation({
   args: {
@@ -7,14 +8,9 @@ export const updateRestaurantTier = mutation({
     tier: v.number(),
   },
   handler: async (ctx, { restaurantId, tier }) => {
-    const smsLimits: Record<number, number> = {
-      1: 300,
-      2: 750,
-      3: 2000,
-    };
     await ctx.db.patch(restaurantId, {
       tier,
-      smsLimit: smsLimits[tier] ?? 300,
+      smsLimit: getPlanByTier(tier).smsLimit,
     });
   },
 });
@@ -47,26 +43,55 @@ export const createRestaurant = mutation({
     name: v.string(),
     slug: v.string(),
     ownerEmail: v.string(),
+    businessType: v.optional(
+      v.union(
+        v.literal("RESTAURANT"),
+        v.literal("DENTAL_CLINIC"),
+        v.literal("GROCERY_STORE"),
+        v.literal("SALON_SPA"),
+        v.literal("FITNESS_STUDIO"),
+        v.literal("HOME_SERVICE"),
+        v.literal("AUTOMOTIVE_SERVICE"),
+        v.literal("RETAIL_STORE"),
+        v.literal("PROFESSIONAL_SERVICE"),
+        v.literal("GENERAL_SERVICE")
+      )
+    ),
+    businessSubtype: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    websiteUrl: v.optional(v.string()),
     googleBusinessUrl: v.optional(v.string()),
     twilioNumber: v.optional(v.string()),
     tier: v.number(),
   },
   handler: async (ctx, args) => {
-    const smsLimits: Record<number, number> = {
-      1: 300,
-      2: 750,
-      3: 2000,
-    };
     const restaurantId = await ctx.db.insert("restaurants", {
       name: args.name,
       slug: args.slug,
+      businessType: args.businessType,
+      businessSubtype: args.businessSubtype,
+      contactPhone: args.contactPhone,
+      websiteUrl: args.websiteUrl,
       tier: args.tier,
-      smsLimit: smsLimits[args.tier] ?? 300,
+      smsLimit: getPlanByTier(args.tier).smsLimit,
       smsUsed: 0,
       overageRate: 0.05,
       googleBusinessUrl: args.googleBusinessUrl,
       twilioNumber: args.twilioNumber,
       active: true,
+    });
+    await ctx.db.insert("restaurantSettings", {
+      restaurantId,
+      sendDelayMinutes: 60,
+      birthdayEnabled: true,
+      reengagement30: true,
+      reengagement60: true,
+      reengagement90: true,
+      aiTone: "Friendly",
+      responseLength: "Medium",
+      autoApprove: false,
+      includeReviewLink: true,
+      kioskDisplayName: args.name,
     });
     await ctx.db.insert("users", {
       clerkId: `pending_${Date.now()}`,
@@ -75,6 +100,64 @@ export const createRestaurant = mutation({
       restaurantId,
     });
     return restaurantId;
+  },
+});
+
+export const deleteRestaurant = mutation({
+  args: { restaurantId: v.id("restaurants") },
+  handler: async (ctx, { restaurantId }) => {
+    const restaurant = await ctx.db.get(restaurantId);
+    if (!restaurant) throw new Error("Client not found");
+
+    const [settings, customers, smsLogs, feedback, notifications, receipts, users] =
+      await Promise.all([
+        ctx.db
+          .query("restaurantSettings")
+          .withIndex("by_restaurantId", (q) => q.eq("restaurantId", restaurantId))
+          .collect(),
+        ctx.db
+          .query("customers")
+          .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+          .collect(),
+        ctx.db
+          .query("smsLogs")
+          .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+          .collect(),
+        ctx.db
+          .query("feedback")
+          .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+          .collect(),
+        ctx.db
+          .query("notifications")
+          .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+          .collect(),
+        ctx.db
+          .query("receipts")
+          .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+          .collect(),
+        ctx.db
+          .query("users")
+          .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
+          .collect(),
+      ]);
+
+    for (const row of settings) await ctx.db.delete(row._id);
+    for (const row of notifications) await ctx.db.delete(row._id);
+    for (const row of smsLogs) await ctx.db.delete(row._id);
+    for (const row of feedback) await ctx.db.delete(row._id);
+    for (const row of receipts) await ctx.db.delete(row._id);
+    for (const row of customers) await ctx.db.delete(row._id);
+
+    for (const user of users) {
+      if (user.role === "SUPER_ADMIN") {
+        await ctx.db.patch(user._id, { restaurantId: undefined });
+      } else {
+        await ctx.db.delete(user._id);
+      }
+    }
+
+    await ctx.db.delete(restaurantId);
+    return { ok: true };
   },
 });
 
@@ -120,14 +203,9 @@ export const getAdminStats = query({
         ? Math.round((googleSent / welcomeSent) * 100)
         : 0;
 
-    const tierPrices: Record<number, number> = {
-      1: 49,
-      2: 99,
-      3: 179,
-    };
     const totalMRR = restaurants
       .filter((r) => r.active)
-      .reduce((sum, r) => sum + (tierPrices[r.tier] ?? 49), 0);
+      .reduce((sum, r) => sum + getPlanByTier(r.tier).price, 0);
 
     const upsellAlerts = restaurants.filter(
       (r) => r.active && r.smsLimit > 0 && r.smsUsed / r.smsLimit >= 0.9

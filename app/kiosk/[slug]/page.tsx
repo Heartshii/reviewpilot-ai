@@ -16,6 +16,7 @@ import {
 } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { getBusinessLabels, titleCaseLabel } from "@/lib/business-copy";
 
 const INACTIVITY_MS = 30_000;
 const DEFAULT_ACCENT = "#10b981";
@@ -222,6 +223,7 @@ export default function KioskPage() {
   const logoUrl = restaurant?.restaurantSettings?.kioskLogoUrl;
   const bgImageUrl = restaurant?.restaurantSettings?.kioskBgImageUrl;
   const isOffline = !connectionState.isWebSocketConnected;
+  const labels = getBusinessLabels(restaurant?.businessType);
 
   const recordActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
@@ -343,7 +345,7 @@ export default function KioskPage() {
       <div className="flex min-h-screen items-center justify-center bg-transparent">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-white/60" />
-          <p className="text-sm text-white/40">Loading…</p>
+          <p className="text-sm text-white/40">Loading...</p>
         </div>
       </div>
     );
@@ -445,16 +447,18 @@ export default function KioskPage() {
                   <div className="mx-auto mt-3 h-0.5 w-16 rounded-full opacity-60" style={{ backgroundColor: accent }} />
                 </div>
               )}
-              <p className="text-center text-white/50">Join our loyalty program & earn rewards</p>
+              <p className="text-center text-white/50">
+                Join our rewards program and earn points
+              </p>
             </div>
 
             {/* Buttons */}
             <div className="flex w-full flex-col gap-3">
               <PrimaryButton accent={accent} onClick={() => setScreen("new")}>
-                New Customer
+                New {titleCaseLabel(labels.customerLabel)}
               </PrimaryButton>
               <GhostButton onClick={() => { setScreen("returning"); setLastFour(""); }}>
-                Returning Customer
+                Returning {titleCaseLabel(labels.customerLabel)}
               </GhostButton>
             </div>
           </div>
@@ -563,7 +567,7 @@ export default function KioskPage() {
                       accent={accent}
                       onClick={() => setScreen("returning-confirm")}
                     >
-                      That&apos;s me →
+                      That&apos;s me -&gt;
                     </PrimaryButton>
                   </div>
                 ) : (
@@ -626,7 +630,7 @@ export default function KioskPage() {
                   });
                 }}
               >
-                Join & Earn Rewards 🎉
+                Join and earn rewards
               </PrimaryButton>
             </div>
           </GlassCard>
@@ -666,9 +670,11 @@ export default function KioskPage() {
         {screen === "bill" && (
           <GlassCard>
             <div className="mb-8 text-center">
-              <h2 className="text-2xl font-bold">Enter Your Bill Amount</h2>
+              <h2 className="text-2xl font-bold">
+                Enter Your {titleCaseLabel(labels.spendLabel)}
+              </h2>
               <p className="mt-2 text-white/50">
-                To earn loyalty points (1$ = 10 points)
+                To earn loyalty points (1 USD = 10 points)
               </p>
             </div>
             <div className="mb-6">
@@ -724,7 +730,7 @@ export default function KioskPage() {
             <div>
               <h2 className="text-3xl font-bold">You&apos;re all set{name.trim() ? `, ${name.trim()}` : ""}!</h2>
               <p className="mt-2 text-lg text-white/50">
-                We&apos;ll text you shortly to hear about your experience
+                We&apos;ll text you shortly to hear about your {labels.visitLabel}
               </p>
             </div>
             <div className="mt-2 h-1 w-48 overflow-hidden rounded-full bg-white/10">
@@ -749,7 +755,7 @@ export default function KioskPage() {
               </p>
               {pointsEarned > 0 && (
                 <p className="mt-1 text-sm" style={{ color: accent }}>
-                  +{pointsEarned} points earned this visit! 🎉
+                  +{pointsEarned} points earned this {labels.visitLabel}!
                 </p>
               )}
             </div>

@@ -3,15 +3,15 @@ import { TrustPageShell } from "@/components/trust-page-shell";
 const sections = [
   {
     title: "1. Service description",
-    body: "ReviewPilot AI provides a software platform for restaurant reputation growth, including kiosk capture, feedback routing, messaging workflows, dashboard analytics, and related operational tools.",
+    body: "ReviewPilot AI provides a software platform for reputation growth, feedback routing, messaging workflows, customer capture, dashboard analytics, and related operational tools.",
   },
   {
     title: "2. Acceptable use",
-    body: "The service is intended for restaurant and hospitality businesses. Users may not use ReviewPilot for deceptive, unlawful, abusive, or non-compliant messaging activity.",
+    body: "The service is intended for lawful business use. Users may not use ReviewPilot for deceptive, unlawful, abusive, or non-compliant messaging activity.",
   },
   {
     title: "3. SMS compliance",
-    body: "Restaurants are solely responsible for obtaining proper consent before messaging customers. ReviewPilot provides tooling, but compliance obligations remain with the business using the service.",
+    body: "Customers of ReviewPilot are solely responsible for obtaining proper consent before messaging end users. ReviewPilot provides tooling, but compliance obligations remain with the business using the service.",
   },
   {
     title: "4. Payment terms",
@@ -36,7 +36,7 @@ export default function TermsPage() {
     <TrustPageShell
       eyebrow="Terms of Service"
       title="ReviewPilot AI Terms of Service"
-      description="Last updated: April 21, 2026. These terms govern access to and use of ReviewPilot AI by restaurant customers and authorized users."
+      description="Last updated: May 3, 2026. These terms govern access to and use of ReviewPilot AI by business customers and authorized users."
     >
       {sections.map((section) => (
         <section

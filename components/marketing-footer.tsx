@@ -16,7 +16,7 @@ export function MarketingFooter() {
                 ReviewPilot AI
               </p>
               <p className="text-xs text-white/35">
-                Built for restaurants that care about their reputation
+                Built for local businesses that care about their reputation
               </p>
             </div>
           </div>
@@ -46,7 +46,7 @@ export function MarketingFooter() {
 
       <div className="mx-auto mt-6 flex w-full max-w-6xl flex-col gap-2 px-4 text-xs text-white/30 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <p>{"\u00A9"} {currentYear} ReviewPilot AI. All rights reserved.</p>
-        <p>Built for restaurants that care about their reputation</p>
+        <p>Built for local businesses that care about their reputation</p>
       </div>
     </footer>
   );

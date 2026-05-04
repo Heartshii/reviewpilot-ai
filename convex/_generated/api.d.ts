@@ -9,6 +9,7 @@
  */
 
 import type * as adminMutations from "../adminMutations.js";
+import type * as billing from "../billing.js";
 import type * as crons from "../crons.js";
 import type * as dashboardMutations from "../dashboardMutations.js";
 import type * as http from "../http.js";
@@ -26,6 +27,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   adminMutations: typeof adminMutations;
+  billing: typeof billing;
   crons: typeof crons;
   dashboardMutations: typeof dashboardMutations;
   http: typeof http;

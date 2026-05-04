@@ -384,3 +384,30 @@ export const getRestaurantSettings = internalQuery({
       .first();
   },
 });
+
+export const getMostRecentSmsForCustomer = internalQuery({
+  args: {
+    customerId: v.id("customers"),
+    smsType: v.union(
+      v.literal("WELCOME"),
+      v.literal("GOOGLE_REVIEW"),
+      v.literal("APOLOGY"),
+      v.literal("DEAL"),
+      v.literal("BIRTHDAY"),
+      v.literal("REENGAGEMENT")
+    ),
+  },
+  handler: async (ctx, { customerId, smsType }) => {
+    const logs = await ctx.db
+      .query("smsLogs")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("customerId"), customerId),
+          q.eq(q.field("smsType"), smsType)
+        )
+      )
+      .collect();
+
+    return logs.sort((a, b) => b.sentAt - a.sentAt)[0] ?? null;
+  },
+});

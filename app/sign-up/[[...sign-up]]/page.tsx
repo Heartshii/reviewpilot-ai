@@ -23,7 +23,8 @@ export default function SignUpPage() {
           </h1>
           <p className="mt-5 max-w-xl text-sm leading-7 text-white/58 sm:text-base">
             Launch your review funnel, automate recovery messaging, and track
-            customer growth with your team in one workspace.
+            repeat visits with your team in one workspace. On the next step,
+            you&apos;ll add your business type, details, and review destination.
           </p>
 
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
@@ -31,7 +32,7 @@ export default function SignUpPage() {
               "Fast onboarding in minutes",
               "Branded kiosk + SMS journeys",
               "AI-assisted recovery workflows",
-              "Dashboard for daily operations",
+              "Built for clinics, stores, and service brands",
             ].map((item) => (
               <div
                 key={item}
@@ -53,8 +54,10 @@ export default function SignUpPage() {
 
         <section className="flex justify-center">
           <SignUp
-            fallbackRedirectUrl="/dashboard"
-            forceRedirectUrl="/dashboard"
+            path="/sign-up"
+            signInUrl="/sign-in"
+            fallbackRedirectUrl="/setup"
+            forceRedirectUrl="/setup"
             appearance={{
               variables: {
                 colorPrimary: "#34d399",

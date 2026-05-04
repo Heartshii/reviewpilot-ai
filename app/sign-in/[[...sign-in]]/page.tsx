@@ -53,8 +53,10 @@ export default function SignInPage() {
 
         <section className="flex justify-center">
           <SignIn
-            fallbackRedirectUrl="/dashboard"
-            forceRedirectUrl="/dashboard"
+            path="/sign-in"
+            signUpUrl="/sign-up"
+            fallbackRedirectUrl="/setup"
+            forceRedirectUrl="/setup"
             appearance={{
               variables: {
                 colorPrimary: "#34d399",
