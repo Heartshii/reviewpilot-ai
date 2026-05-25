@@ -1,7 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { SignUp } from "@clerk/nextjs";
 
 export default function SignUpPage() {
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get("ref")?.trim();
+  const setupUrl = referralCode
+    ? `/setup?ref=${encodeURIComponent(referralCode)}`
+    : "/setup";
+
   return (
     <main className="relative min-h-screen overflow-hidden px-4 py-8 text-white sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(56,189,248,0.18),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(52,211,153,0.2),transparent_40%)]" />
@@ -56,8 +65,8 @@ export default function SignUpPage() {
           <SignUp
             path="/sign-up"
             signInUrl="/sign-in"
-            fallbackRedirectUrl="/setup"
-            forceRedirectUrl="/setup"
+            fallbackRedirectUrl={setupUrl}
+            forceRedirectUrl={setupUrl}
             appearance={{
               variables: {
                 colorPrimary: "#34d399",

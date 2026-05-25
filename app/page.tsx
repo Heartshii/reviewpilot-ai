@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
+import { IconBadge } from "@/components/ui/premium-icon";
 
 const steps = [
   {
@@ -42,32 +45,32 @@ const stats = [
 
 const proofCards = [
   {
-    icon: "AI",
+    icon: "spark",
     title: "Automated workflows",
     body: "Set the rules once. ReviewPilot handles timing, routing, follow-up, and approval-ready recovery drafts.",
   },
   {
-    icon: "RX",
+    icon: "shield",
     title: "Recovery before churn",
     body: "Private negative feedback gives teams a chance to fix the relationship before it becomes a public review.",
   },
   {
-    icon: "DA",
+    icon: "trendUp",
     title: "Signals you can act on",
     body: "Every score, visit, and response becomes a clean signal for operations, service quality, and retention.",
   },
   {
-    icon: "KS",
+    icon: "layers",
     title: "On-site capture",
     body: "The kiosk and QR flow help teams capture feedback while the experience is still fresh.",
   },
   {
-    icon: "CM",
+    icon: "customers",
     title: "Campaign-ready customer memory",
     body: "Track visit counts, loyalty points, spend, and recovery history before you send your next message.",
   },
   {
-    icon: "TR",
+    icon: "check",
     title: "Built for trust",
     body: "Consent-aware messaging, privacy pages, review controls, and business settings keep the platform buyer-ready.",
   },
@@ -75,37 +78,37 @@ const proofCards = [
 
 const features = [
   {
-    icon: "SMS",
+    icon: "sms",
     title: "Smart SMS Flow",
     description:
       "Automated review requests sent at the right moment after a visit or service interaction.",
   },
   {
-    icon: "AI",
+    icon: "spark",
     title: "AI Recovery Engine",
     description:
       "Low ratings trigger an owner-reviewable apology draft so teams can respond faster.",
   },
   {
-    icon: "KSK",
+    icon: "layers",
     title: "Branded Kiosk",
     description:
       "A branded front-desk or checkout kiosk captures customer details, loyalty visits, and feedback on-site.",
   },
   {
-    icon: "INS",
+    icon: "trendUp",
     title: "AI Insights",
     description:
       "Spot rating dips, unhappy segments, and rising activity before problems become reputation damage.",
   },
   {
-    icon: "CMP",
+    icon: "message",
     title: "Campaign Builder",
     description:
       "Send targeted messages to loyal, inactive, VIP, or at-risk customers without exporting spreadsheets.",
   },
   {
-    icon: "DAS",
+    icon: "overview",
     title: "Operator Dashboard",
     description:
       "Live stats, customer history, approvals, activity, billing, and usage in one calm control room.",
@@ -173,21 +176,25 @@ const testimonials = [
 
 const whyItSells = [
   {
+    icon: "check",
     title: "Works across service categories",
     description:
       "Restaurants, clinics, stores, and service brands can use the same system without awkward industry mismatches.",
   },
   {
+    icon: "flash",
     title: "Reduces manual follow-up",
     description:
       "No more scattered texts, spreadsheets, or missed unhappy customers after the visit.",
   },
   {
+    icon: "shield",
     title: "Turns feedback into retention",
     description:
       "Private recovery workflows help protect revenue before a bad experience becomes public damage.",
   },
   {
+    icon: "rocket",
     title: "Grows with the operator",
     description:
       "Start with one location, then expand into more teams, more messages, and more locations from the same workspace.",
@@ -195,13 +202,20 @@ const whyItSells = [
 ];
 
 const trustItems = [
-  { text: "Used by growth-focused local businesses" },
-  { text: "Consent-aware SMS workflows" },
-  { text: "Powered by Twilio, Convex, Clerk, and Stripe" },
-  { text: "Owner-ready onboarding, settings, and billing" },
+  { icon: "live", text: "Used by growth-focused local businesses" },
+  { icon: "shield", text: "Consent-aware SMS workflows" },
+  { icon: "layers", text: "Powered by Twilio, Convex, Clerk, and Stripe" },
+  { icon: "rocket", text: "Owner-ready onboarding, settings, and billing" },
 ];
 
 export default function LandingPage() {
+  const searchParams = useSearchParams();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const referralCode = searchParams.get("ref")?.trim();
+  const signUpHref = referralCode
+    ? `/sign-up?ref=${encodeURIComponent(referralCode)}`
+    : "/sign-up";
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-transparent text-white">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.18),transparent_34%),radial-gradient(circle_at_20%_20%,rgba(52,211,153,0.16),transparent_25%)]" />
@@ -241,13 +255,63 @@ export default function LandingPage() {
             Sign In
           </Link>
           <Link
-            href="/sign-up"
+            href={signUpHref}
             className="rounded-full border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-4 py-2 text-sm font-medium text-slate-950 shadow-[0_8px_32px_rgba(56,189,248,0.3)] transition-shadow hover:shadow-[0_12px_48px_rgba(56,189,248,0.4)]"
           >
             Start Free Trial
           </Link>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen((current) => !current)}
+          className="rounded-full border border-white/10 bg-white/4 px-4 py-2 text-sm text-white/72 md:hidden"
+        >
+          {mobileMenuOpen ? "Close" : "Menu"}
+        </button>
       </nav>
+
+      {mobileMenuOpen ? (
+        <div className="page-shell mt-3 rounded-[1.75rem] border border-white/8 bg-[#08111f]/88 p-4 backdrop-blur-xl md:hidden">
+          <div className="grid gap-2">
+            {[
+              { href: "#features", label: "Features" },
+              { href: "#how-it-works", label: "How It Works" },
+              { href: "#pricing", label: "Pricing" },
+            ].map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/72"
+              >
+                {item.label}
+              </a>
+            ))}
+            <Link
+              href="/contact"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/72"
+            >
+              Contact
+            </Link>
+            <Link
+              href="/sign-in"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/72"
+            >
+              Sign In
+            </Link>
+            <Link
+              href={signUpHref}
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-2xl bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-4 py-3 text-sm font-medium text-slate-950"
+            >
+              Start Free Trial
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       <section className="mx-auto grid w-full max-w-6xl gap-12 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
@@ -265,7 +329,7 @@ export default function LandingPage() {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/sign-up"
+              href={signUpHref}
               className="rounded-xl border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-6 py-3 text-center text-sm font-medium text-slate-950 shadow-[0_8px_32px_rgba(56,189,248,0.3)] transition-shadow hover:shadow-[0_12px_48px_rgba(56,189,248,0.4)]"
             >
               Start Free Trial -&gt;
@@ -391,9 +455,11 @@ export default function LandingPage() {
               style={{ animationDelay: `${index * 70}ms` }}
             >
               <div className="relative z-10 flex items-start gap-4">
-                <div className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/15 text-sm text-emerald-300">
-                  {item.icon}
-                </div>
+                <IconBadge
+                  name={item.icon as Parameters<typeof IconBadge>[0]["name"]}
+                  className="h-11 w-11 flex-shrink-0 border-emerald-400/18 bg-[linear-gradient(180deg,rgba(16,185,129,0.18),rgba(56,189,248,0.06))] text-emerald-100"
+                  iconClassName="h-[18px] w-[18px]"
+                />
                 <div>
                   <h3 className="text-lg font-semibold text-white transition-colors group-hover:text-emerald-300">
                     {item.title}
@@ -438,20 +504,30 @@ export default function LandingPage() {
           {features.map((feature, index) => (
             <article
               key={feature.title}
-              className="feature-glow-card animate-rise-in group rounded-2xl border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-sky-400/30"
+              className="feature-glow-card animate-rise-in group overflow-hidden rounded-[1.9rem] border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-sky-400/30"
               style={{ animationDelay: `${index * 85}ms` }}
             >
-              <div className="relative z-10 flex items-start gap-4">
-                <div className="mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-sky-400/25 bg-sky-400/15 text-[11px] font-semibold tracking-[0.14em] text-sky-200">
-                  {feature.icon}
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="flex items-start justify-between gap-4">
+                  <IconBadge
+                    name={feature.icon as Parameters<typeof IconBadge>[0]["name"]}
+                    className="h-12 w-12 flex-shrink-0 border-sky-400/18 bg-[linear-gradient(180deg,rgba(56,189,248,0.18),rgba(52,211,153,0.06))] text-sky-100"
+                    iconClassName="h-[18px] w-[18px]"
+                  />
+                  <span className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-white/38">
+                    Core workflow
+                  </span>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white transition-colors group-hover:text-sky-300">
+                <div className="mt-8">
+                  <h3 className="text-[1.45rem] font-semibold leading-8 text-white transition-colors group-hover:text-sky-300">
                     {feature.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-7 text-white/60">
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-white/60">
                     {feature.description}
                   </p>
+                </div>
+                <div className="mt-auto pt-8">
+                  <div className="h-px w-full bg-gradient-to-r from-white/10 via-white/5 to-transparent" />
                 </div>
               </div>
             </article>
@@ -499,7 +575,7 @@ export default function LandingPage() {
                 ))}
               </div>
               <Link
-                href="/sign-up"
+                href={signUpHref}
                 className="mt-6 inline-flex w-full items-center justify-center rounded-xl border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-4 py-3 text-sm font-medium text-slate-950 shadow-[0_8px_24px_rgba(56,189,248,0.2)] transition-shadow hover:shadow-[0_12px_40px_rgba(56,189,248,0.3)]"
               >
                 Get Started -&gt;
@@ -555,9 +631,11 @@ export default function LandingPage() {
                 className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm transition-colors hover:border-white/10"
               >
                 <div className="flex items-start gap-4">
-                  <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-sm font-bold text-emerald-400">
-                    +
-                  </div>
+                  <IconBadge
+                    name={item.icon as Parameters<typeof IconBadge>[0]["name"]}
+                    className="mt-0.5 h-10 w-10 flex-shrink-0 border-emerald-500/18 bg-[linear-gradient(180deg,rgba(16,185,129,0.18),rgba(56,189,248,0.05))] text-emerald-100"
+                    iconClassName="h-[16px] w-[16px]"
+                  />
                   <div>
                     <h3 className="text-lg font-semibold text-white">{item.title}</h3>
                     <p className="mt-2 text-sm text-white/60">{item.description}</p>
@@ -605,9 +683,11 @@ export default function LandingPage() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {trustItems.map((item) => (
               <div key={item.text} className="flex items-start gap-3">
-                <div className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
-                  +
-                </div>
+                <IconBadge
+                  name={item.icon as Parameters<typeof IconBadge>[0]["name"]}
+                  className="mt-0.5 h-9 w-9 flex-shrink-0 border-white/10 bg-white/[0.04] text-emerald-100"
+                  iconClassName="h-[15px] w-[15px]"
+                />
                 <p className="text-sm text-white/70">{item.text}</p>
               </div>
             ))}
@@ -615,7 +695,7 @@ export default function LandingPage() {
 
           <div className="mt-10 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/sign-up"
+              href={signUpHref}
               className="flex-1 rounded-xl border-0 bg-[linear-gradient(135deg,#38bdf8,#34d399)] px-6 py-4 text-center text-sm font-medium text-slate-950 shadow-[0_8px_32px_rgba(56,189,248,0.3)] transition-shadow hover:shadow-[0_12px_48px_rgba(56,189,248,0.4)]"
             >
               Start Free Trial -&gt;

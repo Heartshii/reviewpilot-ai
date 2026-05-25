@@ -5,12 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, useUser } from "@clerk/nextjs";
 import { useIsClient } from "@/hooks/useIsClient";
+import { AppIcon, IconBadge } from "@/components/ui/premium-icon";
 
 const nav = [
-  { href: "/admin", label: "Overview", badge: "OV" },
-  { href: "/admin/clients", label: "Clients", badge: "CL" },
-  { href: "/admin/settings", label: "Settings", badge: "SE" },
-];
+  { href: "/admin", label: "Overview", icon: "overview" },
+  { href: "/admin/clients", label: "Clients", icon: "customers" },
+  { href: "/admin/settings", label: "Settings", icon: "settings" },
+] as const;
 
 export default function AdminLayout({
   children,
@@ -39,7 +40,10 @@ export default function AdminLayout({
   }, [isLoaded, user]);
 
   return (
-    <div className="min-h-screen bg-transparent text-white lg:grid lg:grid-cols-[300px_1fr]">
+    <div
+      suppressHydrationWarning
+      className="min-h-screen bg-transparent text-white lg:grid lg:grid-cols-[300px_1fr]"
+    >
       <aside className="border-b border-white/6 bg-[#07111d]/84 px-4 py-4 backdrop-blur-xl lg:min-h-screen lg:border-b-0 lg:border-r">
         <div className="dashboard-surface rounded-[1.8rem] p-4">
           <div className="border-b border-white/6 pb-4">
@@ -69,15 +73,15 @@ export default function AdminLayout({
                       : "text-white/50 hover:bg-white/5 hover:text-white/80"
                   }`}
                 >
-                  <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl border text-[11px] font-semibold tracking-[0.14em] ${
+                  <IconBadge
+                    name={item.icon}
+                    className={
                       active
-                        ? "border-emerald-300/30 bg-emerald-300/12 text-emerald-200"
-                        : "border-white/8 bg-white/4 text-white/35"
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
+                        ? "border-emerald-300/24 bg-[linear-gradient(180deg,rgba(52,211,153,0.16),rgba(76,201,240,0.08))] text-emerald-100"
+                        : "text-white/42"
+                    }
+                    iconClassName="h-[18px] w-[18px]"
+                  />
                   <span>{item.label}</span>
                   {active && (
                     <span className="ml-auto h-2 w-2 rounded-full bg-emerald-300" />
@@ -88,13 +92,22 @@ export default function AdminLayout({
           </nav>
 
           <div className="mt-6 rounded-2xl border border-white/7 bg-white/4 p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/30">
-              Platform pulse
-            </p>
-            <p className="mt-2 text-sm leading-7 text-white/58">
-              Watch client activity, monitor usage, and catch expansion
-              opportunities before they get missed.
-            </p>
+            <div className="flex items-start gap-3">
+              <IconBadge
+                name="shield"
+                className="h-11 w-11 shrink-0 border-emerald-400/16 bg-[linear-gradient(180deg,rgba(52,211,153,0.14),rgba(76,201,240,0.06))] text-emerald-100"
+                iconClassName="h-[18px] w-[18px]"
+              />
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-white/30">
+                  Platform pulse
+                </p>
+                <p className="mt-2 text-sm leading-7 text-white/58">
+                  Watch client activity, monitor billing health, and catch
+                  expansion opportunities before they get missed.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 border-t border-white/6 pt-4">
@@ -123,7 +136,7 @@ export default function AdminLayout({
               )}
             </div>
             <div className="hidden items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-200 sm:flex">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
+              <AppIcon name="live" className="h-3.5 w-3.5" strokeWidth={2} />
               Platform live
             </div>
           </div>

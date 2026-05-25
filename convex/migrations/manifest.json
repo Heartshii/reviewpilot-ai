@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "id": "2026-05-01-auth-billing-hardening",
+      "title": "Auth and billing rollout alignment",
+      "scope": "users, restaurants, billing",
+      "status": "applied",
+      "notes": "Covers user bootstrap stabilization, Stripe billing state, and trial alignment."
+    },
+    {
+      "id": "2026-05-03-multi-location-rbac",
+      "title": "Workspace roles and multi-location foundation",
+      "scope": "users, locations, restaurants",
+      "status": "applied",
+      "notes": "Introduced locations, staff invites, and role-aware workspace access."
+    },
+    {
+      "id": "2026-05-05-campaigns-insights-growth",
+      "title": "Campaign, insights, and growth feature rollout",
+      "scope": "campaigns, feedback, billing",
+      "status": "applied",
+      "notes": "Added scheduled campaigns, segmentation, referral logic, leaderboard, widget, and add-ons."
+    },
+    {
+      "id": "2026-05-07-channel-and-privacy-controls",
+      "title": "Privacy request tooling and phone-channel expansion",
+      "scope": "customers, smsLogs, restaurantSettings",
+      "status": "applied",
+      "notes": "Tracks delivery channel, preferred messaging channel, and owner privacy request workflows."
+    }
+  ]
+}

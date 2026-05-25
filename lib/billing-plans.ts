@@ -3,6 +3,7 @@ export type BillingPlan = {
   key: "starter" | "growth" | "scale";
   name: string;
   price: number;
+  annualPrice: number;
   smsLimit: number;
   summary: string;
   features: string[];
@@ -27,6 +28,15 @@ export type PersistedSubscriptionStatus =
   | "INCOMPLETE_EXPIRED";
 
 export type DisplaySubscriptionStatus = PersistedSubscriptionStatus | "NONE";
+export type BillingInterval = "MONTHLY" | "ANNUAL";
+export const DEFAULT_TRIAL_DAYS = 14;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+type BillingAccessState = {
+  subscriptionStatus?: DisplaySubscriptionStatus | PersistedSubscriptionStatus | null;
+  trialEndsAt?: number | null;
+  stripeSubscriptionId?: string | null;
+};
 
 export const BILLING_PLANS: BillingPlan[] = [
   {
@@ -34,6 +44,7 @@ export const BILLING_PLANS: BillingPlan[] = [
     key: "starter",
     name: "Starter",
     price: 49,
+    annualPrice: 490,
     smsLimit: 500,
     summary: "Best for one local business testing reputation automation.",
     features: [
@@ -57,6 +68,7 @@ export const BILLING_PLANS: BillingPlan[] = [
     key: "growth",
     name: "Pro",
     price: 79,
+    annualPrice: 790,
     smsLimit: 1000,
     summary: "Adds recovery, campaigns, and lifecycle messaging for growing teams.",
     features: [
@@ -83,6 +95,7 @@ export const BILLING_PLANS: BillingPlan[] = [
     key: "scale",
     name: "Agency",
     price: 149,
+    annualPrice: 1490,
     smsLimit: 2000,
     summary: "Built for teams managing multiple locations or client accounts.",
     features: [
@@ -106,6 +119,11 @@ export const BILLING_PLANS: BillingPlan[] = [
 
 export function getPlanByTier(tier: number) {
   return BILLING_PLANS.find((plan) => plan.tier === tier) ?? BILLING_PLANS[0];
+}
+
+export function getPlanPriceByInterval(tier: number, interval: BillingInterval) {
+  const plan = getPlanByTier(tier);
+  return interval === "ANNUAL" ? plan.annualPrice : plan.price;
 }
 
 export function getSmsLimitForTier(tier: number) {
@@ -153,4 +171,69 @@ export function hasActiveSubscription(status: DisplaySubscriptionStatus) {
     status === "PAST_DUE" ||
     status === "INCOMPLETE"
   );
+}
+
+export function getInitialTrialEndsAt(
+  now = Date.now(),
+  trialDays = DEFAULT_TRIAL_DAYS
+) {
+  return now + trialDays * DAY_IN_MS;
+}
+
+export function getRemainingTrialDays(
+  trialEndsAt?: number | null,
+  now = Date.now()
+) {
+  if (!trialEndsAt) return 0;
+  const diff = trialEndsAt - now;
+  return Math.max(0, Math.ceil(diff / DAY_IN_MS));
+}
+
+export function isTrialExpired(
+  state: Pick<BillingAccessState, "trialEndsAt">,
+  now = Date.now()
+) {
+  return !!state.trialEndsAt && state.trialEndsAt <= now;
+}
+
+export function hasWorkspaceBillingAccess(
+  state: BillingAccessState,
+  now = Date.now()
+) {
+  const normalizedStatus =
+    (state.subscriptionStatus as DisplaySubscriptionStatus | undefined) ?? "NONE";
+
+  if (
+    normalizedStatus === "NONE" &&
+    !state.trialEndsAt &&
+    !state.stripeSubscriptionId
+  ) {
+    return true;
+  }
+
+  if (hasActiveSubscription(normalizedStatus)) {
+    return true;
+  }
+
+  return getRemainingTrialDays(state.trialEndsAt, now) > 0;
+}
+
+export function getCheckoutTrialDays(args: {
+  stripeSubscriptionId?: string | null;
+  trialEndsAt?: number | null;
+  fallbackTrialDays?: number;
+  now?: number;
+}) {
+  if (args.stripeSubscriptionId) {
+    return undefined;
+  }
+
+  const now = args.now ?? Date.now();
+  const remaining = getRemainingTrialDays(args.trialEndsAt, now);
+  if (remaining > 0) {
+    return Math.max(1, remaining);
+  }
+
+  const fallback = args.fallbackTrialDays ?? 0;
+  return fallback > 0 ? Math.max(1, Math.floor(fallback)) : undefined;
 }

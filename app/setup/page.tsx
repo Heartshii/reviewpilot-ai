@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "convex/react";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/convex/_generated/api";
@@ -13,7 +13,12 @@ import {
   type BusinessType,
 } from "@/lib/business-copy";
 import { useEnsureUser } from "@/hooks/useEnsureUser";
+import { useE2ESession } from "@/hooks/useE2ESession";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
+import {
+  slugifyWorkspace,
+  validateOnboardingInput,
+} from "@/lib/validation";
 
 const steps = [
   {
@@ -35,7 +40,7 @@ const steps = [
   {
     title: "Activate billing before launch",
     items: [
-      "Start a plan or trial before the workflow goes live so usage lands on an active account.",
+      "Every new workspace starts with a 14-day trial so you can test the full flow before going live.",
       "Use the billing page for invoices, card updates, and subscription changes.",
       "Resolve any trial or payment warnings before staff depend on automatic follow-up.",
     ],
@@ -59,18 +64,11 @@ const checklist = [
   "Owner knows who approves recovery SMS",
 ];
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50);
-}
-
 export default function SetupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
+  const { session: e2eSession, isLoaded: isE2ELoaded } = useE2ESession();
   const { convexUser, isLoading } = useEnsureUser();
   const restaurantId = useRestaurantId();
   const completeOwnerOnboarding = useMutation(api.users.completeOwnerOnboarding);
@@ -87,18 +85,33 @@ export default function SetupPage() {
   const [error, setError] = useState<string | null>(null);
 
   const labels = getBusinessLabels(businessType);
+  const referralCode = searchParams.get("ref")?.trim().toUpperCase() ?? "";
   const suggestedSlug = useMemo(
-    () => slugify(workspaceSlug || businessName),
+    () => slugifyWorkspace(workspaceSlug || businessName),
     [businessName, workspaceSlug]
   );
 
   const handleCreateWorkspace = async () => {
-    if (!user) return;
+    const activeClerkId = user?.id ?? e2eSession?.clerkId;
+    const activeEmail =
+      user?.emailAddresses[0]?.emailAddress ?? e2eSession?.email ?? "";
+
+    if (!activeClerkId || !activeEmail) return;
     const name = businessName.trim();
     const slug = suggestedSlug;
 
-    if (!name || !slug) {
-      setError("Add a business name first.");
+    const parsed = validateOnboardingInput({
+      restaurantName: name,
+      restaurantSlug: slug,
+      businessType,
+      businessSubtype,
+      contactPhone,
+      websiteUrl,
+      googleBusinessUrl,
+    });
+
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Check your business details.");
       return;
     }
 
@@ -107,15 +120,10 @@ export default function SetupPage() {
 
     try {
       await completeOwnerOnboarding({
-        clerkId: user.id,
-        email: user.emailAddresses[0]?.emailAddress ?? "",
-        restaurantName: name,
-        restaurantSlug: slug,
-        businessType,
-        businessSubtype: businessSubtype.trim() || undefined,
-        contactPhone: contactPhone.trim() || undefined,
-        websiteUrl: websiteUrl.trim() || undefined,
-        googleBusinessUrl: googleBusinessUrl.trim() || undefined,
+        clerkId: activeClerkId,
+        email: activeEmail,
+        referralCode: referralCode || undefined,
+        ...parsed.data,
       });
       router.push("/dashboard/billing");
       router.refresh();
@@ -130,8 +138,11 @@ export default function SetupPage() {
     }
   };
 
+  const hasIdentity = (isLoaded && !!user) || (isE2ELoaded && !!e2eSession);
+  const identityEmail =
+    user?.primaryEmailAddress?.emailAddress ?? e2eSession?.email ?? "";
   const showWorkspaceForm =
-    isLoaded && user && !isLoading && convexUser !== undefined && !restaurantId;
+    hasIdentity && !isLoading && convexUser !== undefined && !restaurantId;
 
   return (
     <main className="page-shell px-2 py-16 text-white">
@@ -163,7 +174,7 @@ export default function SetupPage() {
                   </p>
                 </div>
                 <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                  Signed in as {user?.primaryEmailAddress?.emailAddress}
+                  Signed in as {identityEmail}
                 </div>
               </div>
 
@@ -173,6 +184,7 @@ export default function SetupPage() {
                     Business name
                   </label>
                   <input
+                    data-testid="setup-business-name"
                     type="text"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
@@ -185,6 +197,7 @@ export default function SetupPage() {
                     Business type
                   </label>
                   <select
+                    data-testid="setup-business-type"
                     value={businessType}
                     onChange={(e) =>
                       setBusinessType(e.target.value as BusinessType)
@@ -206,6 +219,7 @@ export default function SetupPage() {
                     Workspace slug
                   </label>
                   <input
+                    data-testid="setup-workspace-slug"
                     type="text"
                     value={workspaceSlug}
                     onChange={(e) => setWorkspaceSlug(e.target.value)}
@@ -221,6 +235,7 @@ export default function SetupPage() {
                     Specialty or service focus
                   </label>
                   <input
+                    data-testid="setup-business-subtype"
                     type="text"
                     value={businessSubtype}
                     onChange={(e) => setBusinessSubtype(e.target.value)}
@@ -236,6 +251,7 @@ export default function SetupPage() {
                     Contact phone
                   </label>
                   <input
+                    data-testid="setup-contact-phone"
                     type="tel"
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
@@ -248,6 +264,7 @@ export default function SetupPage() {
                     Website
                   </label>
                   <input
+                    data-testid="setup-website-url"
                     type="url"
                     value={websiteUrl}
                     onChange={(e) => setWebsiteUrl(e.target.value)}
@@ -262,6 +279,7 @@ export default function SetupPage() {
                   Google review link
                 </label>
                 <input
+                  data-testid="setup-google-review-url"
                   type="url"
                   value={googleBusinessUrl}
                   onChange={(e) => setGoogleBusinessUrl(e.target.value)}
@@ -280,6 +298,20 @@ export default function SetupPage() {
                 the workspace.
               </div>
 
+              <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
+                Creating this workspace starts a 14-day free trial. Use that time
+                to finish branding, test kiosk check-ins, and confirm billing before
+                launch.
+              </div>
+
+              {referralCode && (
+                <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
+                  Referral applied: <span className="font-semibold">{referralCode}</span>.
+                  Once this workspace activates billing, the referral reward will be
+                  applied automatically.
+                </div>
+              )}
+
               {error && (
                 <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                   {error}
@@ -288,6 +320,7 @@ export default function SetupPage() {
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
+                  data-testid="setup-create-workspace"
                   type="button"
                   onClick={() => void handleCreateWorkspace()}
                   disabled={submitting}
@@ -316,8 +349,8 @@ export default function SetupPage() {
                     Your business setup is connected
                   </h2>
                   <p className="mt-3 text-sm leading-7 text-white/58">
-                    Continue to billing to start a trial, then finish branding
-                    and message behavior inside settings.
+                    Your 14-day trial is ready. Continue to billing to manage the
+                    plan details, then finish branding and message behavior inside settings.
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">

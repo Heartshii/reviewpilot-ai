@@ -4,7 +4,39 @@ import {
   internalMutation,
   internalQuery,
   mutation,
+  type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import {
+  DUPLICATE_CHECKIN_WINDOW_MS,
+  getPhoneLookupCandidates,
+  parseCustomerCheckInInput,
+} from "../lib/validation";
+import type { CampaignSegmentKey } from "../lib/campaign-segments";
+import { hasWorkspaceBillingAccess } from "../lib/billing-plans";
+import { getCustomersForSegment } from "./segmentUtils";
+
+async function findCustomerByPhoneCandidates(
+  ctx: Pick<QueryCtx | MutationCtx, "db">,
+  restaurantId: Id<"restaurants">,
+  phone: string
+) {
+  for (const candidate of getPhoneLookupCandidates(phone)) {
+    const customer = await ctx.db
+      .query("customers")
+      .withIndex("by_restaurant_phone", (q) =>
+        q.eq("restaurantId", restaurantId).eq("phone", candidate)
+      )
+      .first();
+
+    if (customer) {
+      return customer;
+    }
+  }
+
+  return null;
+}
 
 export const getCustomer = internalQuery({
   args: { customerId: v.id("customers") },
@@ -30,12 +62,7 @@ export const getCustomerByPhone = internalQuery({
     phone: v.string(),
   },
   handler: async (ctx, { restaurantId, phone }) => {
-    return await ctx.db
-      .query("customers")
-      .withIndex("by_restaurant_phone", (q) =>
-        q.eq("restaurantId", restaurantId).eq("phone", phone)
-      )
-      .first();
+    return await findCustomerByPhoneCandidates(ctx, restaurantId, phone);
   },
 });
 
@@ -48,17 +75,78 @@ export const saveFeedback = internalMutation({
   args: {
     rating: v.number(),
     restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
     customerId: v.optional(v.id("customers")),
     atRisk: v.boolean(),
+    customerMessage: v.optional(v.string()),
   },
-  handler: async (ctx, { rating, restaurantId, customerId, atRisk }) => {
+  handler: async (ctx, { rating, restaurantId, locationId, customerId, atRisk, customerMessage }) => {
     return await ctx.db.insert("feedback", {
       rating,
       restaurantId,
+      locationId,
       customerId,
+      customerMessage,
       atRisk: atRisk ? true : undefined,
       createdAt: Date.now(),
     });
+  },
+});
+
+export const getLatestFeedbackForCustomer = internalQuery({
+  args: {
+    restaurantId: v.id("restaurants"),
+    customerId: v.id("customers"),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, { restaurantId, customerId, locationId }) => {
+    const feedbackRows = await ctx.db
+      .query("feedback")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("restaurantId"), restaurantId),
+          q.eq(q.field("customerId"), customerId)
+        )
+      )
+      .collect();
+
+    const filtered = feedbackRows
+      .filter((row) => (locationId ? row.locationId === locationId : true))
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    return filtered[0] ?? null;
+  },
+});
+
+export const updateFeedbackAnalysis = internalMutation({
+  args: {
+    feedbackId: v.id("feedback"),
+    sentiment: v.optional(
+      v.union(
+        v.literal("POSITIVE"),
+        v.literal("NEUTRAL"),
+        v.literal("NEGATIVE")
+      )
+    ),
+    sentimentCategory: v.optional(
+      v.union(
+        v.literal("SERVICE"),
+        v.literal("STAFF"),
+        v.literal("WAIT_TIME"),
+        v.literal("PRICE"),
+        v.literal("QUALITY"),
+        v.literal("CLEANLINESS"),
+        v.literal("COMMUNICATION"),
+        v.literal("OTHER")
+      )
+    ),
+    sentimentConfidence: v.optional(v.number()),
+    sentimentSummary: v.optional(v.string()),
+    customerMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { feedbackId, ...patch } = args;
+    await ctx.db.patch(feedbackId, patch);
   },
 });
 
@@ -70,7 +158,8 @@ export const saveSmsLog = internalMutation({
       v.literal("APOLOGY"),
       v.literal("DEAL"),
       v.literal("BIRTHDAY"),
-      v.literal("REENGAGEMENT")
+      v.literal("REENGAGEMENT"),
+      v.literal("LOYALTY_REWARD")
     ),
     content: v.string(),
     status: v.union(
@@ -81,7 +170,9 @@ export const saveSmsLog = internalMutation({
     cost: v.number(),
     isOverage: v.boolean(),
     restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
     customerId: v.optional(v.id("customers")),
+    deliveryChannel: v.optional(v.union(v.literal("SMS"), v.literal("WHATSAPP"))),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("smsLogs", {
@@ -95,7 +186,19 @@ export const incrementSmsUsed = internalMutation({
   args: { restaurantId: v.id("restaurants") },
   handler: async (ctx, { restaurantId }) => {
     const r = await ctx.db.get(restaurantId);
-    if (r) await ctx.db.patch(restaurantId, { smsUsed: r.smsUsed + 1 });
+    if (!r) return;
+
+    const nextSmsUsed = r.smsUsed + 1;
+    const exceededBaseLimit = r.smsLimit > 0 && nextSmsUsed > r.smsLimit;
+    const nextCreditsBalance =
+      exceededBaseLimit && (r.smsCreditsBalance ?? 0) > 0
+        ? Math.max(0, (r.smsCreditsBalance ?? 0) - 1)
+        : r.smsCreditsBalance ?? 0;
+
+    await ctx.db.patch(restaurantId, {
+      smsUsed: nextSmsUsed,
+      smsCreditsBalance: nextCreditsBalance,
+    });
   },
 });
 
@@ -125,6 +228,7 @@ export const getOwnerForRestaurant = internalQuery({
 export const saveNotification = internalMutation({
   args: {
     restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
     smsLogId: v.id("smsLogs"),
     customerId: v.optional(v.id("customers")),
   },
@@ -140,67 +244,32 @@ export const saveNotification = internalMutation({
 export const getSegmentCustomers = internalQuery({
   args: {
     restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
+    channel: v.optional(
+      v.union(v.literal("SMS"), v.literal("WHATSAPP"), v.literal("EMAIL"))
+    ),
     segment: v.union(
       v.literal("ALL"),
-      v.literal("LOYAL"),
       v.literal("NEW"),
-      v.literal("ATRISK"),
-      v.literal("INACTIVE"),
-      v.literal("VIP")
+      v.literal("LOYAL"),
+      v.literal("VIP"),
+      v.literal("HIGH_SPEND"),
+      v.literal("RECENT"),
+      v.literal("INACTIVE_30"),
+      v.literal("INACTIVE_60"),
+      v.literal("NEEDS_ATTENTION"),
+      v.literal("REVIEW_READY")
     ),
   },
-  handler: async (ctx, { restaurantId, segment }) => {
-    const all = await ctx.db
-      .query("customers")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("restaurantId"), restaurantId),
-          q.eq(q.field("optedInSms"), true)
-        )
-      )
-      .collect();
-    const now = Date.now();
-    const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000;
-
-    if (segment === "ALL") return all.map((c) => c._id);
-    if (segment === "LOYAL")
-      return all.filter((c) => c.visitCount >= 5).map((c) => c._id);
-    if (segment === "NEW")
-      return all.filter((c) => c.visitCount === 1).map((c) => c._id);
-    if (segment === "VIP")
-      return all.filter((c) => c.points >= 200).map((c) => c._id);
-    if (segment === "INACTIVE") {
-      return all
-        .filter((c) => {
-          const lastVisit = c.lastVisitAt ?? c.createdAt;
-          return lastVisit < sixtyDaysAgo;
-        })
-        .map((c) => c._id);
-    }
-    if (segment === "ATRISK") {
-      const feedbacks = await ctx.db
-        .query("feedback")
-        .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
-        .collect();
-        const latestByCustomer = new Map();
-      for (const f of feedbacks) {
-        if (!f.customerId) continue;
-        const k = f.customerId;
-        const existing = latestByCustomer.get(k);
-        if (!existing || f.createdAt > existing.createdAt)
-          latestByCustomer.set(k, {
-            rating: f.rating,
-            createdAt: f.createdAt,
-          });
-      }
-      return all
-        .filter((c) => {
-          const last = latestByCustomer.get(c._id);
-          return last && last.rating <= 3;
-        })
-        .map((c) => c._id);
-    }
-    return [];
+  handler: async (ctx, { restaurantId, locationId, channel, segment }) => {
+    const customers = await getCustomersForSegment({
+      ctx,
+      restaurantId,
+      locationId,
+      channel: (channel as "SMS" | "WHATSAPP" | "EMAIL" | undefined) ?? "SMS",
+      segment: segment as CampaignSegmentKey,
+    });
+    return customers.map((customer) => customer._id);
   },
 });
 
@@ -210,14 +279,16 @@ export const handleOptOut = internalMutation({
     restaurantId: v.id("restaurants"),
   },
   handler: async (ctx, { customerPhone, restaurantId }) => {
-    const customer = await ctx.db
-      .query("customers")
-      .withIndex("by_restaurant_phone", (q) =>
-        q.eq("restaurantId", restaurantId).eq("phone", customerPhone)
-      )
-      .first();
+    const customer = await findCustomerByPhoneCandidates(
+      ctx,
+      restaurantId,
+      customerPhone
+    );
     if (customer) {
-      await ctx.db.patch(customer._id, { optedInSms: false });
+      await ctx.db.patch(customer._id, {
+        optedInSms: false,
+        phone: getPhoneLookupCandidates(customerPhone)[0] ?? customer.phone,
+      });
     }
   },
 });
@@ -226,28 +297,88 @@ export const createCustomer = mutation({
   args: {
     name: v.string(),
     phone: v.string(),
+    email: v.optional(v.string()),
     restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
     birthdayMonth: v.optional(v.number()),
     birthdayDay: v.optional(v.number()),
     optedInSms: v.boolean(),
+    optedInEmail: v.optional(v.boolean()),
     billAmount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const billAmount = Math.max(0, args.billAmount ?? 0);
-    const pointsEarned = Math.round(billAmount * 10);
+    const restaurant = await ctx.db.get(args.restaurantId);
+    if (!restaurant) {
+      throw new Error("Business not found");
+    }
+    if (
+      !hasWorkspaceBillingAccess({
+        subscriptionStatus: restaurant.subscriptionStatus ?? "NONE",
+        trialEndsAt: restaurant.trialEndsAt,
+        stripeSubscriptionId: restaurant.stripeSubscriptionId,
+      })
+    ) {
+      throw new Error(
+        "This workspace trial has ended. Activate billing to keep collecting new customer check-ins."
+      );
+    }
 
-    const existing = await ctx.db
-      .query("customers")
-      .withIndex("by_restaurant_phone", (q) =>
-        q.eq("restaurantId", args.restaurantId).eq("phone", args.phone)
+    const parsed = parseCustomerCheckInInput({
+      ...args,
+      restaurantId: args.restaurantId,
+    });
+    const billAmount = Math.max(0, parsed.billAmount ?? 0);
+    const pointsEarned = Math.round(billAmount * 10);
+    const now = Date.now();
+    const existingGuard = await ctx.db
+      .query("requestGuards")
+      .withIndex("by_scope_key", (q) =>
+        q
+          .eq("scope", "KIOSK_CHECKIN")
+          .eq("key", `${args.restaurantId}:${parsed.phone}`)
       )
       .first();
 
+    if (existingGuard && existingGuard.expiresAt > now) {
+      throw new Error("Please wait a moment before checking in this customer again.");
+    }
+
+    if (existingGuard) {
+      await ctx.db.patch(existingGuard._id, {
+        attempts: existingGuard.attempts + 1,
+        expiresAt: now + DUPLICATE_CHECKIN_WINDOW_MS,
+        lastSeenAt: now,
+      });
+    } else {
+      await ctx.db.insert("requestGuards", {
+        scope: "KIOSK_CHECKIN",
+        key: `${args.restaurantId}:${parsed.phone}`,
+        attempts: 1,
+        createdAt: now,
+        lastSeenAt: now,
+        expiresAt: now + DUPLICATE_CHECKIN_WINDOW_MS,
+      });
+    }
+
+    const existing = await findCustomerByPhoneCandidates(
+      ctx,
+      args.restaurantId,
+      parsed.phone
+    );
+
     if (existing) {
       await ctx.db.patch(existing._id, {
+        name: parsed.name,
+        phone: parsed.phone,
+        email: parsed.email ?? existing.email,
         visitCount: existing.visitCount + 1,
-        lastVisitAt: Date.now(),
+        lastVisitAt: now,
         points: existing.points + pointsEarned,
+        optedInEmail:
+          parsed.email && parsed.optedInEmail !== undefined
+            ? parsed.optedInEmail
+            : existing.optedInEmail,
+        lastLocationId: args.locationId ?? existing.lastLocationId,
       });
 
       if (billAmount > 0) {
@@ -257,7 +388,8 @@ export const createCustomer = mutation({
           status: "APPROVED",
           customerId: existing._id,
           restaurantId: args.restaurantId,
-          submittedAt: Date.now(),
+          locationId: args.locationId,
+          submittedAt: now,
         });
       }
 
@@ -266,16 +398,19 @@ export const createCustomer = mutation({
     }
 
     const customerId = await ctx.db.insert("customers", {
-      name: args.name,
-      phone: args.phone,
+      name: parsed.name,
+      phone: parsed.phone,
+      email: parsed.email,
       restaurantId: args.restaurantId,
-      birthdayMonth: args.birthdayMonth,
-      birthdayDay: args.birthdayDay,
+      lastLocationId: args.locationId,
+      birthdayMonth: parsed.birthdayMonth,
+      birthdayDay: parsed.birthdayDay,
       points: pointsEarned,
       visitCount: 1,
-      optedInSms: args.optedInSms,
-      createdAt: Date.now(),
-      lastVisitAt: Date.now(),
+      optedInSms: parsed.optedInSms,
+      optedInEmail: parsed.email ? parsed.optedInEmail ?? false : false,
+      createdAt: now,
+      lastVisitAt: now,
     });
 
     if (billAmount > 0) {
@@ -285,7 +420,8 @@ export const createCustomer = mutation({
         status: "APPROVED",
         customerId,
         restaurantId: args.restaurantId,
-        submittedAt: Date.now(),
+        locationId: args.locationId,
+        submittedAt: now,
       });
     }
 
@@ -305,16 +441,21 @@ export const addReceiptForCustomer = mutation({
     customerId: v.id("customers"),
     billAmount: v.number(),
     restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
   },
-  handler: async (ctx, { customerId, billAmount, restaurantId }) => {
+  handler: async (ctx, { customerId, billAmount, restaurantId, locationId }) => {
     const billAmountClean = Math.max(0, billAmount);
     const pointsEarned = Math.round(billAmountClean * 10);
 
     const customer = await ctx.db.get(customerId);
     if (!customer) throw new Error("Customer not found");
+    if (customer.restaurantId !== restaurantId) {
+      throw new Error("Customer does not belong to this workspace");
+    }
 
     await ctx.db.patch(customerId, {
       points: customer.points + pointsEarned,
+      lastLocationId: locationId ?? customer.lastLocationId,
     });
 
     await ctx.db.insert("receipts", {
@@ -323,6 +464,7 @@ export const addReceiptForCustomer = mutation({
       status: "APPROVED",
       customerId,
       restaurantId,
+      locationId,
       submittedAt: Date.now(),
     });
 
@@ -394,7 +536,8 @@ export const getMostRecentSmsForCustomer = internalQuery({
       v.literal("APOLOGY"),
       v.literal("DEAL"),
       v.literal("BIRTHDAY"),
-      v.literal("REENGAGEMENT")
+      v.literal("REENGAGEMENT"),
+      v.literal("LOYALTY_REWARD")
     ),
   },
   handler: async (ctx, { customerId, smsType }) => {

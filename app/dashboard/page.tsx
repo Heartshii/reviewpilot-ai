@@ -16,8 +16,10 @@ import {
 } from "recharts";
 import { api } from "@/convex/_generated/api";
 import { CustomerDrawer } from "@/components/CustomerDrawer";
+import { IconBadge } from "@/components/ui/premium-icon";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useIsClient } from "@/hooks/useIsClient";
+import { useLocationScope } from "@/hooks/useLocationScope";
 import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { getBusinessLabels, titleCaseLabel } from "@/lib/business-copy";
 import { hasFeatureForTier } from "@/lib/billing-plans";
@@ -87,24 +89,25 @@ function GlowCard({
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setGlow((prev) => ({ ...prev, opacity: 0 }))}
-      className={`group relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm transition-all duration-300 hover:border-emerald-500/20 hover:bg-white/[0.04] ${
+      className={`group relative overflow-hidden rounded-[28px] border border-white/8 bg-[#0b1420]/92 p-6 shadow-[0_24px_80px_rgba(2,6,23,0.26)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/14 hover:bg-[#0d1725]/96 hover:shadow-[0_30px_90px_rgba(8,145,178,0.12)] ${
         href ? "cursor-pointer" : ""
       }`}
     >
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-[radial-gradient(circle_at_bottom,rgba(52,211,153,0.08),transparent_72%)] opacity-70" />
       <div
         className="pointer-events-none absolute transition-opacity duration-300"
         style={{
-          left: glow.x - 80,
-          top: glow.y - 80,
-          width: 160,
-          height: 160,
+          left: glow.x - 110,
+          top: glow.y - 110,
+          width: 220,
+          height: 220,
           borderRadius: "50%",
           background:
-            "radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%)",
-          opacity: glow.opacity,
+            "radial-gradient(circle, rgba(76,201,240,0.14) 0%, rgba(16,185,129,0.12) 34%, transparent 72%)",
+          opacity: glow.opacity * 0.9,
         }}
       />
-      <div className="absolute bottom-0 left-0 h-0.5 w-full origin-left scale-x-0 bg-emerald-500/40 transition-transform duration-500 group-hover:scale-x-100" />
+      <div className="absolute bottom-0 left-0 h-px w-full origin-left scale-x-0 bg-[linear-gradient(90deg,rgba(52,211,153,0.75),rgba(56,189,248,0.72))] transition-transform duration-500 group-hover:scale-x-100" />
       {children}
     </div>
   );
@@ -115,17 +118,20 @@ function GlowCard({
 
 export default function DashboardPage() {
   const restaurantId = useRestaurantId();
+  const { selectedLocationId, selectedLocation } = useLocationScope();
+  const locationId =
+    selectedLocationId === "ALL" ? undefined : selectedLocationId;
   const stats = useQuery(
     api.queries.getDashboardStats,
-    restaurantId ? { restaurantId } : "skip"
+    restaurantId ? { restaurantId, locationId } : "skip"
   );
   const activity = useQuery(
     api.queries.getRecentActivity,
-    restaurantId ? { restaurantId } : "skip"
+    restaurantId ? { restaurantId, locationId } : "skip"
   );
   const customers = useQuery(
     api.queries.getCustomers,
-    restaurantId ? { restaurantId } : "skip"
+    restaurantId ? { restaurantId, locationId } : "skip"
   );
   const restaurant = useQuery(
     api.queries.getRestaurant,
@@ -133,7 +139,7 @@ export default function DashboardPage() {
   );
   const insightsSnapshot = useQuery(
     api.queries.getAiInsightsSnapshot,
-    restaurantId ? { restaurantId } : "skip"
+    restaurantId ? { restaurantId, locationId } : "skip"
   );
   type ActivityRow = NonNullable<typeof activity>[number];
   type CustomerRow = NonNullable<typeof customers>[number];
@@ -142,11 +148,15 @@ export default function DashboardPage() {
   const isClient = useIsClient();
   const smsHistory = useQuery(
     api.queries.getCustomerSmsHistory,
-    restaurantId && drawerId ? { restaurantId, customerId: drawerId } : "skip"
+    restaurantId && drawerId
+      ? { restaurantId, customerId: drawerId, locationId }
+      : "skip"
   );
   const receiptHistory = useQuery(
     api.queries.getCustomerReceiptHistory,
-    restaurantId && drawerId ? { restaurantId, customerId: drawerId } : "skip"
+    restaurantId && drawerId
+      ? { restaurantId, customerId: drawerId, locationId }
+      : "skip"
   );
 
   if (!restaurantId) return null;
@@ -172,21 +182,44 @@ export default function DashboardPage() {
     : false;
   const estimatedReviewRate = insightsSnapshot.reviewConversionRate;
 
-  const insights = [];
+  const insights: Array<{
+    icon:
+      | "rocket"
+      | "alert"
+      | "trendDown"
+      | "spark"
+      | "trendUp"
+      | "clock"
+      | "reviews"
+      | "message"
+      | "flash"
+      | "spend"
+      | "repeat";
+    text: string;
+    tone: string;
+    href: string;
+    actionLabel: string;
+  }> = [];
 
   if (insightsSnapshot.totalCustomers === 0) {
     insights.push({
-      icon: "\uD83D\uDE80",
+      icon: "rocket",
       text: `No ${labels.customerLabelPlural} have checked in yet. Start with the kiosk or QR flow so ReviewPilot has real data to optimize.`,
-      tone: "border-sky-500/20 bg-sky-500/10 text-sky-100",
+      tone:
+        "border-sky-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,23,39,0.88))] text-sky-100",
+      href: "/dashboard/settings",
+      actionLabel: "Open kiosk setup",
     });
   }
 
   if (insightsSnapshot.pendingApprovals > 0) {
     insights.push({
-      icon: "\u26A0",
+      icon: "alert",
       text: `${insightsSnapshot.pendingApprovals} recovery message${insightsSnapshot.pendingApprovals === 1 ? " is" : "s are"} waiting for approval. Clearing them quickly improves save-rate with unhappy ${labels.customerLabelPlural}.`,
-      tone: "border-amber-500/20 bg-amber-500/10 text-amber-200",
+      tone:
+        "border-amber-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(24,18,10,0.88))] text-amber-100",
+      href: "/dashboard/reviews",
+      actionLabel: "Open approval queue",
     });
   }
 
@@ -194,90 +227,144 @@ export default function DashboardPage() {
     insights.push(
       insightsSnapshot.averageCurrentWeekRating < 4
         ? {
-            icon: "\uD83D\uDCC9",
+            icon: "trendDown",
             text: `Average rating dipped to ${insightsSnapshot.averageCurrentWeekRating.toFixed(1)} this week. Review recent feedback before more low experiences stack up.`,
-            tone: "border-amber-500/20 bg-amber-500/10 text-amber-200",
+            tone:
+              "border-amber-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(24,18,10,0.88))] text-amber-100",
+            href: "/dashboard/reviews",
+            actionLabel: "Inspect recent feedback",
           }
         : {
-            icon: "\u2726",
+            icon: "spark",
             text: `Strong week at ${insightsSnapshot.averageCurrentWeekRating.toFixed(1)}\u2605. This is a good time to push more happy ${labels.customerLabelPlural} toward public reviews.`,
-            tone: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+            tone:
+              "border-emerald-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,28,23,0.88))] text-emerald-100",
+            href: "/dashboard/sms",
+            actionLabel: "Launch a review push",
           }
     );
   }
 
   if (insightsSnapshot.currentWeekNewCustomers > 0) {
     insights.push({
-      icon: "\u2191",
+      icon: "trendUp",
       text: `${insightsSnapshot.currentWeekNewCustomers} new ${labels.customerLabelPlural} joined this week. Consider a welcome or return-offer campaign while they still remember the visit.`,
-      tone: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+      tone:
+        "border-emerald-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,28,23,0.88))] text-emerald-100",
+      href: "/dashboard/sms",
+      actionLabel: "Open campaign builder",
     });
   }
 
   if (insightsSnapshot.inactiveCount > 0) {
     insights.push({
-      icon: "\u23F3",
+      icon: "clock",
       text: `${insightsSnapshot.inactiveCount} ${labels.customerLabelPlural} are inactive right now. Re-engagement SMS can bring back people who already know the business.`,
-      tone: "border-violet-500/20 bg-violet-500/10 text-violet-200",
+      tone:
+        "border-violet-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(20,14,33,0.88))] text-violet-100",
+      href: "/dashboard/sms",
+      actionLabel: "Build a comeback campaign",
     });
   }
 
   if (insightsSnapshot.loyalCount > 0) {
     insights.push({
-      icon: "\u2B50",
+      icon: "reviews",
       text: `${insightsSnapshot.loyalCount} loyal ${labels.customerLabelPlural} have 5+ ${labels.visitLabelPlural}. They are strong candidates for VIP deals, referral asks, or review pushes.`,
-      tone: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+      tone:
+        "border-emerald-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,28,23,0.88))] text-emerald-100",
+      href: "/dashboard/loyalty",
+      actionLabel: "Open loyalty workspace",
     });
   }
 
   if (insightsSnapshot.atRiskCount > 0) {
     insights.push({
-      icon: "\uD83D\uDEA8",
+      icon: "alert",
       text: `${insightsSnapshot.atRiskCount} ${labels.customerLabelPlural} are currently marked at risk. Fast follow-up matters most here.`,
-      tone: "border-red-500/20 bg-red-500/10 text-red-200",
+      tone:
+        "border-red-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(35,13,17,0.88))] text-red-100",
+      href: "/dashboard/reviews",
+      actionLabel: "Recover at-risk customers",
     });
   }
 
   if (insightsSnapshot.smsSentThisMonth > 0) {
     insights.push({
-      icon: "\uD83D\uDCF2",
+      icon: "message",
       text:
         estimatedReviewRate > 0
           ? `${insightsSnapshot.smsSentThisMonth} SMS sent this month with about ${estimatedReviewRate}% reaching the Google review step.`
           : `${insightsSnapshot.smsSentThisMonth} SMS sent this month. Your follow-up funnel is active, but public review clicks still need momentum.`,
-      tone: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+      tone:
+        "border-sky-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(11,21,36,0.88))] text-sky-100",
+      href: "/dashboard/sms",
+      actionLabel: "Review message performance",
     });
   }
 
   if (insightsSnapshot.smsUsagePercent >= 80) {
     insights.push({
-      icon: "\u26A1",
+      icon: "flash",
       text: `You have used about ${insightsSnapshot.smsUsagePercent}% of this month's SMS allowance. Watch usage so campaigns do not stall late in the cycle.`,
-      tone: "border-amber-500/20 bg-amber-500/10 text-amber-200",
+      tone:
+        "border-amber-400/16 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(24,18,10,0.88))] text-amber-100",
+      href: "/dashboard/billing",
+      actionLabel: "Review plan usage",
     });
   }
 
   if (insightsSnapshot.averageSpendPerTrackedCustomer > 0) {
     insights.push({
-      icon: "\uD83D\uDCB8",
+      icon: "spend",
       text: `Average tracked spend is $${insightsSnapshot.averageSpendPerTrackedCustomer.toFixed(2)} per ${labels.customerLabel}. That helps position loyalty and return offers around real value.`,
-      tone: "border-white/10 bg-white/[0.04] text-white/70",
+      tone:
+        "border-white/10 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,17,27,0.88))] text-white/78",
+      href: "/dashboard/loyalty",
+      actionLabel: "Create a spend-based reward",
     });
   }
 
   if (insightsSnapshot.averageVisits >= 2) {
     insights.push({
-      icon: "\uD83D\uDD01",
+      icon: "repeat",
       text: `Average repeat frequency is ${insightsSnapshot.averageVisits.toFixed(1)} ${labels.visitLabelPlural} per ${labels.customerLabel}. Repeat behavior is forming, so retention messaging has leverage.`,
-      tone: "border-white/10 bg-white/[0.04] text-white/70",
+      tone:
+        "border-white/10 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,17,27,0.88))] text-white/78",
+      href: "/dashboard/customers",
+      actionLabel: "Review repeat customers",
     });
   }
 
   insights.push({
-    icon: "\uD83D\uDCA1",
+    icon: "spark",
     text: `Tip: Respond to negative feedback within 24 hours to recover the ${labels.customerLabel} before they disengage.`,
-    tone: "border-white/10 bg-white/[0.04] text-white/70",
+    tone:
+      "border-white/10 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,17,27,0.88))] text-white/78",
+    href: "/dashboard/reviews",
+    actionLabel: "Open recovery workflow",
   });
+
+  const fallbackInsights = [
+    {
+      icon: "leaderboard" as const,
+      text: `Promoter mix is one of the fastest ways to spot which ${labels.customerLabelPlural} are ready for public proof and review asks.`,
+      tone:
+        "border-white/10 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,20,31,0.88))] text-white/78",
+      href: "/dashboard/leaderboard",
+      actionLabel: "Open public proof",
+    },
+    {
+      icon: "shield" as const,
+      text: `Use the recovery queue as a daily guardrail so low ratings never sit unaddressed for more than one shift.`,
+      tone:
+        "border-white/10 bg-[linear-gradient(180deg,rgba(8,17,29,0.96),rgba(10,20,31,0.88))] text-white/78",
+      href: "/dashboard/reviews",
+      actionLabel: "Review daily recovery",
+    },
+  ];
+  const featuredInsight = insights[0];
+  const secondaryInsights = [...insights.slice(1), ...fallbackInsights].slice(0, 6);
 
   return (
     <div className="space-y-6">
@@ -287,6 +374,9 @@ export default function DashboardPage() {
         </h1>
         <p className="mt-1 text-sm text-white/30">
           Your {labels.businessLabel} performance at a glance
+        </p>
+        <p className="mt-2 text-xs text-white/24">
+          Scope: {selectedLocation?.name ?? "All locations"}
         </p>
       </div>
 
@@ -372,7 +462,7 @@ export default function DashboardPage() {
 
       {canSeeAiInsights ? (
         <GlowCard>
-          <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-5">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
                 {"\u2726"}
@@ -380,24 +470,26 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm font-medium text-white/80">AI Insights</p>
                 <p className="text-xs text-white/30">
-                  Trend-aware guidance derived from ratings, spending, retention,
-                  and message activity
+                  Decision support derived from ratings, retention, spend, and message activity
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/28">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Link
+                href="/dashboard/reviews"
+                className="rounded-[24px] border border-white/8 bg-[#0a131f]/94 p-4 transition-colors hover:border-emerald-400/14 hover:bg-[#0d1725]/96"
+              >
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/28">
                   Rating momentum
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-white">
-                  {insightsSnapshot.averageCurrentWeekRating > 0
-                    ? `${insightsSnapshot.averageCurrentWeekRating.toFixed(1)}★`
-                    : "-"}
+                <p className="mt-3 font-display text-[1.8rem] font-semibold tracking-[-0.05em] text-white">
+                  {stats.avgRatingThisWeek > 0
+                    ? stats.avgRatingThisWeek.toFixed(1)
+                    : "--"}
                 </p>
                 <p
-                  className={`mt-1 text-xs ${
+                  className={`mt-2 text-xs ${
                     insightsSnapshot.ratingDelta > 0
                       ? "text-emerald-300"
                       : insightsSnapshot.ratingDelta < 0
@@ -409,227 +501,594 @@ export default function DashboardPage() {
                     ? `${insightsSnapshot.ratingDelta >= 0 ? "+" : ""}${insightsSnapshot.ratingDelta.toFixed(1)} vs last week`
                     : "No prior-week benchmark yet"}
                 </p>
-              </div>
+              </Link>
 
-              <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/28">
+              <Link
+                href="/dashboard/sms"
+                className="rounded-[24px] border border-white/8 bg-[#0a131f]/94 p-4 transition-colors hover:border-emerald-400/14 hover:bg-[#0d1725]/96"
+              >
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/28">
                   Retention pressure
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-white">
+                <p className="mt-3 font-display text-[1.8rem] font-semibold tracking-[-0.05em] text-white">
                   {insightsSnapshot.inactiveCount}
                 </p>
-                <p className="mt-1 text-xs text-white/38">
+                <p className="mt-2 text-xs text-white/38">
                   inactive {labels.customerLabelPlural}
                 </p>
-              </div>
+              </Link>
 
-              <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/28">
+              <Link
+                href="/dashboard/sms"
+                className="rounded-[24px] border border-white/8 bg-[#0a131f]/94 p-4 transition-colors hover:border-emerald-400/14 hover:bg-[#0d1725]/96"
+              >
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/28">
                   Funnel health
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-white">
+                <p className="mt-3 font-display text-[1.8rem] font-semibold tracking-[-0.05em] text-white">
                   {insightsSnapshot.reviewConversionRate}%
                 </p>
-                <p className="mt-1 text-xs text-white/38">
+                <p className="mt-2 text-xs text-white/38">
                   review-step reach this month
                 </p>
-              </div>
-            </div>
-          </div>
+              </Link>
 
-          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-white/28">
-                    Weekly trend
-                  </p>
-                  <p className="mt-2 text-sm text-white/55">
-                    New {labels.customerLabelPlural} and feedback volume over the
-                    last 6 weeks
-                  </p>
-                  <div className="mt-4 h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={insightsSnapshot.weeklyTrend}>
-                        <CartesianGrid
-                          stroke="rgba(255,255,255,0.06)"
-                          vertical={false}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis hide />
-                        <Tooltip
-                          cursor={{ fill: "rgba(255,255,255,0.03)" }}
-                          contentStyle={{
-                            background: "#09111d",
-                            border: "1px solid rgba(255,255,255,0.08)",
-                            borderRadius: "16px",
-                            color: "#e5eef9",
-                          }}
-                        />
-                        <Bar
-                          dataKey="newCustomers"
-                          fill="rgba(52,211,153,0.82)"
-                          radius={[8, 8, 0, 0]}
-                          name="New customers"
-                        />
-                        <Bar
-                          dataKey="feedback"
-                          fill="rgba(56,189,248,0.72)"
-                          radius={[8, 8, 0, 0]}
-                          name="Feedback"
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-white/28">
-                    Rating signal
-                  </p>
-                  <p className="mt-2 text-sm text-white/55">
-                    Weekly average rating over the last 6 weeks
-                  </p>
-                  <div className="mt-4 h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={insightsSnapshot.weeklyTrend}>
-                        <CartesianGrid
-                          stroke="rgba(255,255,255,0.06)"
-                          vertical={false}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          domain={[0, 5]}
-                          width={24}
-                          tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <Tooltip
-                          cursor={{ stroke: "rgba(255,255,255,0.08)" }}
-                          contentStyle={{
-                            background: "#09111d",
-                            border: "1px solid rgba(255,255,255,0.08)",
-                            borderRadius: "16px",
-                            color: "#e5eef9",
-                          }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="rating"
-                          stroke="#34d399"
-                          strokeWidth={3}
-                          dot={{ r: 4, fill: "#34d399" }}
-                          activeDot={{ r: 5 }}
-                          name="Average rating"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-white/28">
-                  Recommended action
+              <Link
+                href={
+                  insightsSnapshot.recommendedSegment === "ATRISK"
+                    ? "/dashboard/reviews"
+                    : "/dashboard/sms"
+                }
+                className="rounded-[24px] border border-white/8 bg-[#0a131f]/94 p-4 transition-colors hover:border-emerald-400/14 hover:bg-[#0d1725]/96"
+              >
+                <p className="text-[10px] uppercase tracking-[0.18em] text-white/28">
+                  Recommended next move
                 </p>
-                <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p className="text-lg font-semibold text-white">
-                      {insightsSnapshot.recommendationTitle}
-                    </p>
-                    <p className="mt-2 max-w-2xl text-sm leading-7 text-white/55">
-                      {insightsSnapshot.recommendationBody}
+                <p className="mt-3 text-base font-semibold text-white">
+                  {insightsSnapshot.recommendationTitle}
+                </p>
+                <p className="mt-2 text-xs text-emerald-300">
+                  {insightsSnapshot.recommendedSegment === "ATRISK"
+                    ? "Open recovery queue"
+                    : "Open SMS Center"}
+                </p>
+              </Link>
+            </div>
+
+            {featuredInsight && (
+              <Link
+                href={featuredInsight.href}
+                className="group block rounded-[32px] border border-white/8 bg-[#0a131f]/96 p-6 shadow-[0_28px_80px_rgba(2,6,23,0.26)] transition-colors hover:border-emerald-300/14"
+              >
+                <div className="flex items-start gap-4">
+                  <IconBadge
+                    name={featuredInsight.icon}
+                    className="h-14 w-14 shrink-0 border-white/10 bg-white/[0.04] text-white/82"
+                    iconClassName="h-6 w-6"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">
+                        Priority signal
+                      </p>
+                      <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/58">
+                        AI guided
+                      </span>
+                    </div>
+                    <p className="mt-4 max-w-4xl font-display text-[1.35rem] font-semibold leading-[1.24] tracking-[-0.04em] text-white sm:text-[1.55rem]">
+                      {featuredInsight.text}
                     </p>
                   </div>
-                  <Link
-                    href={
-                      insightsSnapshot.recommendedSegment === "ATRISK"
-                        ? "/dashboard/reviews"
-                        : "/dashboard/sms"
-                    }
-                    className="inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#34d399,#4cc9f0)] px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(76,201,240,0.18)]"
-                  >
-                    {insightsSnapshot.recommendedSegment === "ATRISK"
-                      ? "Open recovery queue"
-                      : "Open SMS Center"}
-                  </Link>
+                </div>
+
+                <div className="mt-5 rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-white/34">
+                    Why this matters
+                  </p>
+                  <p className="mt-3 text-sm leading-7 text-white/56">
+                    This is the strongest next move in the workspace based on live ratings, repeat behavior, current outreach volume, and the current recovery load.
+                  </p>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {[
+                    {
+                      label: "Inactive customers",
+                      value: insightsSnapshot.inactiveCount,
+                      note: "ready for comeback messaging",
+                    },
+                    {
+                      label: "Loyal customers",
+                      value: insightsSnapshot.loyalCount,
+                      note: "strong audience for VIP or review asks",
+                    },
+                    {
+                      label: "At-risk customers",
+                      value: insightsSnapshot.atRiskCount,
+                      note: "need recovery attention first",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-center justify-between gap-4 rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-4"
+                    >
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-white/34">
+                          {item.label}
+                        </p>
+                        <p className="mt-1 text-xs text-white/40">{item.note}</p>
+                      </div>
+                      <p className="font-display text-[1.55rem] font-semibold tracking-[-0.05em] text-white">
+                        {item.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-white/34">
+                    Suggested next action
+                  </p>
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-white/78">
+                    {featuredInsight.actionLabel}
+                    <span className="text-emerald-300">-&gt;</span>
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              {secondaryInsights.map((insight) => (
+                <Link
+                  key={insight.text}
+                  href={insight.href}
+                  className="group rounded-[26px] border border-white/8 bg-[#0a131f]/94 px-4 py-4 text-sm shadow-[0_20px_50px_rgba(2,6,23,0.18)] transition-colors hover:border-emerald-400/14 hover:bg-[#0d1725]/96"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <IconBadge
+                        name={insight.icon}
+                        className="h-11 w-11 shrink-0 border-white/10 bg-black/12 text-white/78"
+                        iconClassName="h-[18px] w-[18px]"
+                      />
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+                          Suggested move
+                        </p>
+                        <p className="mt-2 leading-7 text-white/88">
+                          {insight.text}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-xs text-white/30 transition-transform group-hover:translate-x-0.5">
+                      -&gt;
+                    </span>
+                  </div>
+                  <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-300">
+                    {insight.actionLabel}
+                  </p>
+                </Link>
+              ))}
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-[28px] border border-white/8 bg-[#0a131f]/94 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.22)]">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+                  Weekly trend
+                </p>
+                <p className="mt-2 text-sm text-white/55">
+                  New {labels.customerLabelPlural} and feedback volume over the last 6 weeks
+                </p>
+                <div className="mt-5 h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={insightsSnapshot.weeklyTrend}>
+                      <CartesianGrid
+                        stroke="rgba(255,255,255,0.06)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis hide />
+                      <Tooltip
+                        cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                        contentStyle={{
+                          background: "#09111d",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: "16px",
+                          color: "#e5eef9",
+                        }}
+                      />
+                      <Bar
+                        dataKey="newCustomers"
+                        fill="rgba(52,211,153,0.82)"
+                        radius={[8, 8, 0, 0]}
+                        name="New customers"
+                      />
+                      <Bar
+                        dataKey="feedback"
+                        fill="rgba(56,189,248,0.72)"
+                        radius={[8, 8, 0, 0]}
+                        name="Feedback"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-white/8 bg-[#0a131f]/94 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.22)]">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+                  Rating signal
+                </p>
+                <p className="mt-2 text-sm text-white/55">
+                  Weekly average rating over the last 6 weeks
+                </p>
+                <div className="mt-5 h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={insightsSnapshot.weeklyTrend}>
+                      <CartesianGrid
+                        stroke="rgba(255,255,255,0.06)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={[0, 5]}
+                        width={24}
+                        tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        cursor={{ stroke: "rgba(255,255,255,0.08)" }}
+                        contentStyle={{
+                          background: "#09111d",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: "16px",
+                          color: "#e5eef9",
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="rating"
+                        stroke="#34d399"
+                        strokeWidth={3}
+                        dot={{ r: 4, fill: "#34d399" }}
+                        activeDot={{ r: 5 }}
+                        name="Average rating"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-[28px] border border-white/8 bg-[#0a131f]/94 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.22)]">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+                      CSAT score
+                    </p>
+                    <p className="mt-2 text-sm text-white/55">
+                      Percent of customers rating the experience 4 star or 5 star
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-semibold text-white">
+                      {insightsSnapshot.currentWeekCsat}%
+                    </p>
+                    <p
+                      className={`mt-1 text-xs ${
+                        insightsSnapshot.csatDelta > 0
+                          ? "text-emerald-300"
+                          : insightsSnapshot.csatDelta < 0
+                            ? "text-amber-200"
+                            : "text-white/35"
+                      }`}
+                    >
+                      {insightsSnapshot.previousWeekCsat > 0
+                        ? `${insightsSnapshot.csatDelta >= 0 ? "+" : ""}${insightsSnapshot.csatDelta}% vs last week`
+                        : "No prior-week benchmark yet"}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5 h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={insightsSnapshot.weeklyTrend}>
+                      <CartesianGrid
+                        stroke="rgba(255,255,255,0.06)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        width={26}
+                        tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        cursor={{ stroke: "rgba(255,255,255,0.08)" }}
+                        contentStyle={{
+                          background: "#09111d",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: "16px",
+                          color: "#e5eef9",
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="csat"
+                        stroke="#4cc9f0"
+                        strokeWidth={3}
+                        dot={{ r: 4, fill: "#4cc9f0" }}
+                        activeDot={{ r: 5 }}
+                        name="CSAT %"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-white/8 bg-[#0a131f]/94 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.22)]">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+                      NPS-style signal
+                    </p>
+                    <p className="mt-2 text-sm text-white/55">
+                      5 star counts as promoter, 4 star passive, 1 to 3 star detractor
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-semibold text-white">
+                      {insightsSnapshot.currentWeekNps}
+                    </p>
+                    <p
+                      className={`mt-1 text-xs ${
+                        insightsSnapshot.npsDelta > 0
+                          ? "text-emerald-300"
+                          : insightsSnapshot.npsDelta < 0
+                            ? "text-amber-200"
+                            : "text-white/35"
+                      }`}
+                    >
+                      {insightsSnapshot.previousWeekNps !== 0 ||
+                      insightsSnapshot.currentWeekNps !== 0
+                        ? `${insightsSnapshot.npsDelta >= 0 ? "+" : ""}${insightsSnapshot.npsDelta} vs last week`
+                        : "No prior-week benchmark yet"}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5 h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={insightsSnapshot.weeklyTrend}>
+                      <CartesianGrid
+                        stroke="rgba(255,255,255,0.06)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={[-100, 100]}
+                        width={28}
+                        tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        cursor={{ stroke: "rgba(255,255,255,0.08)" }}
+                        contentStyle={{
+                          background: "#09111d",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: "16px",
+                          color: "#e5eef9",
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="nps"
+                        stroke="#34d399"
+                        strokeWidth={3}
+                        dot={{ r: 4, fill: "#34d399" }}
+                        activeDot={{ r: 5 }}
+                        name="NPS-style"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[24px] border border-white/8 bg-[#0a131f]/94 p-4">
+                <div className="flex items-center gap-3">
+                  <IconBadge
+                    name="loyalty"
+                    className="h-10 w-10 border-white/10 bg-white/[0.03] text-white/72"
+                    iconClassName="h-[17px] w-[17px]"
+                  />
                   <p className="text-xs uppercase tracking-[0.16em] text-white/28">
                     Loyalty base
                   </p>
-                  <p className="mt-2 text-3xl font-semibold text-white">
-                    {insightsSnapshot.loyalCount}
-                  </p>
-                  <p className="mt-1 text-sm text-white/42">
-                    loyal {labels.customerLabelPlural} ready for review or VIP asks
-                  </p>
                 </div>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  {insightsSnapshot.loyalCount}
+                </p>
+                <p className="mt-1 text-sm text-white/42">
+                  loyal {labels.customerLabelPlural} ready for review or VIP asks
+                </p>
+              </div>
 
-                <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+              <div className="rounded-[24px] border border-white/8 bg-[#0a131f]/94 p-4">
+                <div className="flex items-center gap-3">
+                  <IconBadge
+                    name="alert"
+                    className="h-10 w-10 border-white/10 bg-white/[0.03] text-white/72"
+                    iconClassName="h-[17px] w-[17px]"
+                  />
                   <p className="text-xs uppercase tracking-[0.16em] text-white/28">
                     At-risk count
                   </p>
-                  <p className="mt-2 text-3xl font-semibold text-white">
-                    {insightsSnapshot.atRiskCount}
-                  </p>
-                  <p className="mt-1 text-sm text-white/42">
-                    {labels.customerLabelPlural} needing recovery attention
-                  </p>
                 </div>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  {insightsSnapshot.atRiskCount}
+                </p>
+                <p className="mt-1 text-sm text-white/42">
+                  {labels.customerLabelPlural} needing recovery attention
+                </p>
+              </div>
 
-                <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+              <div className="rounded-[24px] border border-white/8 bg-[#0a131f]/94 p-4">
+                <div className="flex items-center gap-3">
+                  <IconBadge
+                    name="message"
+                    className="h-10 w-10 border-white/10 bg-white/[0.03] text-white/72"
+                    iconClassName="h-[17px] w-[17px]"
+                  />
                   <p className="text-xs uppercase tracking-[0.16em] text-white/28">
                     Lifecycle sends
                   </p>
-                  <p className="mt-2 text-3xl font-semibold text-white">
-                    {insightsSnapshot.reengagementSentThisMonth +
-                      insightsSnapshot.birthdaySentThisMonth}
-                  </p>
-                  <p className="mt-1 text-sm text-white/42">
-                    birthday + re-engagement SMS sent this month
-                  </p>
                 </div>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  {insightsSnapshot.reengagementSentThisMonth +
+                    insightsSnapshot.birthdaySentThisMonth}
+                </p>
+                <p className="mt-1 text-sm text-white/42">
+                  birthday + re-engagement SMS sent this month
+                </p>
+              </div>
 
-                <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+              <div className="rounded-[24px] border border-white/8 bg-[#0a131f]/94 p-4">
+                <div className="flex items-center gap-3">
+                  <IconBadge
+                    name="spend"
+                    className="h-10 w-10 border-white/10 bg-white/[0.03] text-white/72"
+                    iconClassName="h-[17px] w-[17px]"
+                  />
                   <p className="text-xs uppercase tracking-[0.16em] text-white/28">
                     Tracked spend
                   </p>
-                  <p className="mt-2 text-3xl font-semibold text-white">
-                    ${insightsSnapshot.trackedSpend.toFixed(0)}
+                </div>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  ${insightsSnapshot.trackedSpend.toFixed(0)}
+                </p>
+                <p className="mt-1 text-sm text-white/42">
+                  recorded customer spend in this workspace
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-white/8 bg-[#0a131f]/94 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.22)]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-white/28">
+                    Promoter mix
                   </p>
                   <p className="mt-1 text-sm text-white/42">
-                    recorded customer spend in this workspace
+                    Based on the last 30 days of private feedback.
                   </p>
                 </div>
+                <Link
+                  href="/dashboard/reviews"
+                  className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-300"
+                >
+                  Open feedback
+                </Link>
               </div>
-
-              <div className="space-y-3 border-l-2 border-emerald-500/30 pl-4">
-                {insights.slice(0, 8).map((insight) => (
-                  <div
-                    key={insight.text}
-                    className={`rounded-2xl border px-4 py-3 text-sm ${insight.tone}`}
-                  >
-                    <span className="mr-2">{insight.icon}</span>
-                    {insight.text}
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <div className="flex items-center justify-between text-xs text-white/48">
+                    <span>Promoters</span>
+                    <span>{insightsSnapshot.promoters30d}</span>
                   </div>
-                ))}
+                  <div className="mt-1 h-2 rounded-full bg-white/6">
+                    <div
+                      className="h-2 rounded-full bg-emerald-400"
+                      style={{
+                        width: `${
+                          insightsSnapshot.promoters30d +
+                            insightsSnapshot.passives30d +
+                            insightsSnapshot.detractors30d >
+                          0
+                            ? (insightsSnapshot.promoters30d /
+                                (insightsSnapshot.promoters30d +
+                                  insightsSnapshot.passives30d +
+                                  insightsSnapshot.detractors30d)) *
+                              100
+                            : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs text-white/48">
+                    <span>Passives</span>
+                    <span>{insightsSnapshot.passives30d}</span>
+                  </div>
+                  <div className="mt-1 h-2 rounded-full bg-white/6">
+                    <div
+                      className="h-2 rounded-full bg-sky-400"
+                      style={{
+                        width: `${
+                          insightsSnapshot.promoters30d +
+                            insightsSnapshot.passives30d +
+                            insightsSnapshot.detractors30d >
+                          0
+                            ? (insightsSnapshot.passives30d /
+                                (insightsSnapshot.promoters30d +
+                                  insightsSnapshot.passives30d +
+                                  insightsSnapshot.detractors30d)) *
+                              100
+                            : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs text-white/48">
+                    <span>Detractors</span>
+                    <span>{insightsSnapshot.detractors30d}</span>
+                  </div>
+                  <div className="mt-1 h-2 rounded-full bg-white/6">
+                    <div
+                      className="h-2 rounded-full bg-amber-400"
+                      style={{
+                        width: `${
+                          insightsSnapshot.promoters30d +
+                            insightsSnapshot.passives30d +
+                            insightsSnapshot.detractors30d >
+                          0
+                            ? (insightsSnapshot.detractors30d /
+                                (insightsSnapshot.promoters30d +
+                                  insightsSnapshot.passives30d +
+                                  insightsSnapshot.detractors30d)) *
+                              100
+                            : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

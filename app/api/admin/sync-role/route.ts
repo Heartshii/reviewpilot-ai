@@ -2,13 +2,7 @@ import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { api } from "@/convex/_generated/api";
 import { getConvexServerClient } from "@/lib/convex-server";
-
-function readAllowedAdminEmails() {
-  return (process.env.SUPER_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
+import { getSuperAdminEmails } from "@/lib/env";
 
 export async function POST() {
   const { userId } = await auth();
@@ -29,7 +23,7 @@ export async function POST() {
     );
   }
 
-  const allowedEmails = readAllowedAdminEmails();
+  const allowedEmails = getSuperAdminEmails();
   if (!allowedEmails.includes(email.trim().toLowerCase())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

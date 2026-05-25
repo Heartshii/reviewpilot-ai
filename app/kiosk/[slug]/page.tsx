@@ -16,6 +16,7 @@ import {
 } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { AppIcon } from "@/components/ui/premium-icon";
 import { getBusinessLabels, titleCaseLabel } from "@/lib/business-copy";
 
 const INACTIVITY_MS = 30_000;
@@ -36,16 +37,20 @@ type QueuedSubmission =
       type: "new";
       name: string;
       phone: string;
+      email?: string;
       restaurantId: Id<"restaurants">;
+      locationId?: Id<"locations">;
       birthdayMonth?: number;
       birthdayDay?: number;
       optedInSms: boolean;
+      optedInEmail?: boolean;
     }
   | {
       type: "returning";
       name: string;
       phone: string;
       restaurantId: Id<"restaurants">;
+      locationId?: Id<"locations">;
     };
 
 const MONTHS = [
@@ -53,6 +58,41 @@ const MONTHS = [
   "Jul","Aug","Sep","Oct","Nov","Dec",
 ];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+
+function Eyebrow({
+  icon,
+  children,
+}: {
+  icon: React.ComponentProps<typeof AppIcon>["name"];
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/48">
+      <AppIcon name={icon} className="h-3.5 w-3.5" />
+      {children}
+    </div>
+  );
+}
+
+function KioskChip({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentProps<typeof AppIcon>["name"];
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/14 px-4 py-3">
+      <div className="flex items-center gap-2 text-white/35">
+        <AppIcon name={icon} className="h-4 w-4" />
+        <p className="text-[11px] uppercase tracking-[0.16em]">{label}</p>
+      </div>
+      <p className="mt-2 text-sm font-medium text-white/88">{value}</p>
+    </div>
+  );
+}
 
 // ── Numeric Keypad ──────────────────────────────────────
 function NumericKeypad({
@@ -185,6 +225,7 @@ export default function KioskPage() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [lastFour, setLastFour] = useState("");
   const [birthdayMonth, setBirthdayMonth] = useState<number | undefined>();
   const [birthdayDay, setBirthdayDay] = useState<number | undefined>();
@@ -195,6 +236,7 @@ export default function KioskPage() {
   const [billAmount, setBillAmount] = useState("");
   const [checkedInCustomerId, setCheckedInCustomerId] = useState<Id<"customers"> | null>(null);
   const [pointsEarned, setPointsEarned] = useState(0);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const lastActivityRef = useRef(0);
   const queueRef = useRef<QueuedSubmission[]>([]);
   const [queueCount, setQueueCount] = useState(0);
@@ -222,6 +264,16 @@ export default function KioskPage() {
   const displayName = restaurant?.restaurantSettings?.kioskDisplayName ?? restaurant?.name ?? "";
   const logoUrl = restaurant?.restaurantSettings?.kioskLogoUrl;
   const bgImageUrl = restaurant?.restaurantSettings?.kioskBgImageUrl;
+  const whiteLabelEnabled =
+    restaurant?.restaurantSettings?.whiteLabelEnabled ?? false;
+  const whiteLabelBrandName =
+    restaurant?.restaurantSettings?.whiteLabelBrandName?.trim() ?? "";
+  const whiteLabelSupportEmail =
+    restaurant?.restaurantSettings?.whiteLabelSupportEmail?.trim() ?? "";
+  const whiteLabelHideReviewPilot =
+    restaurant?.restaurantSettings?.whiteLabelHideReviewPilot ?? false;
+  const activeLocationId =
+    restaurant && "locationId" in restaurant ? restaurant.locationId : undefined;
   const isOffline = !connectionState.isWebSocketConnected;
   const labels = getBusinessLabels(restaurant?.businessType);
 
@@ -235,7 +287,7 @@ export default function KioskPage() {
     const iv = setInterval(() => {
       if (Date.now() - lastActivityRef.current >= INACTIVITY_MS) {
         setScreen("welcome");
-        setName(""); setPhone(""); setLastFour("");
+        setName(""); setPhone(""); setEmail(""); setLastFour("");
         setBirthdayMonth(undefined); setBirthdayDay(undefined);
         setConsent(false);
         setBillAmount(""); setCheckedInCustomerId(null); setPointsEarned(0);
@@ -254,6 +306,7 @@ export default function KioskPage() {
           clearInterval(iv);
           setScreen("welcome");
           setName("");
+          setEmail("");
           return 0;
         }
         return c - 1;
@@ -272,10 +325,12 @@ export default function KioskPage() {
           await createCustomerMutation({
             name: item.name,
             phone: item.phone,
+            email: item.type === "new" ? item.email : undefined,
             restaurantId: item.restaurantId,
             birthdayMonth: item.type === "new" ? item.birthdayMonth : undefined,
             birthdayDay: item.type === "new" ? item.birthdayDay : undefined,
             optedInSms: item.type === "new" ? item.optedInSms : true,
+            optedInEmail: item.type === "new" ? item.optedInEmail : undefined,
           });
           queueRef.current = queueRef.current.filter((x) => x !== item);
           setQueueCount(queueRef.current.length);
@@ -298,37 +353,51 @@ export default function KioskPage() {
     async (opts: {
       type: "new" | "returning";
       name: string; phone: string;
+      email?: string;
       restaurantId: Id<"restaurants">;
-      birthdayMonth?: number; birthdayDay?: number; optedInSms?: boolean;
+      locationId?: Id<"locations">;
+      birthdayMonth?: number; birthdayDay?: number; optedInSms?: boolean; optedInEmail?: boolean;
     }) => {
       if (!restaurant) return;
+      setSubmissionError(null);
       const payload = {
         name: opts.name, phone: opts.phone,
+        email: opts.email,
         restaurantId: opts.restaurantId,
+        locationId: opts.locationId,
         birthdayMonth: opts.birthdayMonth,
         birthdayDay: opts.birthdayDay,
         optedInSms: opts.optedInSms ?? true,
+        optedInEmail: opts.optedInEmail,
       };
       try {
         const result = await createCustomerMutation(payload);
         if (opts.type === "returning" && result.existing && result.customer) {
-          setCheckedInCustomerId(result.customer._id);
+          setCheckedInCustomerId(result.customer._id as Id<"customers">);
           setScreen("bill");
         } else {
           setScreen(opts.type === "new" ? "success" : "success-returning");
         }
-      } catch {
-        queueRef.current.push({ ...payload, type: opts.type, optedInSms: opts.optedInSms ?? true } as QueuedSubmission);
-        setQueueCount(queueRef.current.length);
-        if (opts.type === "returning") {
-          // For offline, assume existing and go to bill
-          setScreen("bill");
-        } else {
-          setScreen(opts.type === "new" ? "success" : "success-returning");
+      } catch (error) {
+        if (!connectionState.isWebSocketConnected) {
+          queueRef.current.push({ ...payload, type: opts.type, optedInSms: opts.optedInSms ?? true } as QueuedSubmission);
+          setQueueCount(queueRef.current.length);
+          if (opts.type === "returning") {
+            setScreen("bill");
+          } else {
+            setScreen(opts.type === "new" ? "success" : "success-returning");
+          }
+          return;
         }
+
+        setSubmissionError(
+          error instanceof Error
+            ? error.message
+            : "Unable to save this check-in right now."
+        );
       }
     },
-    [createCustomerMutation, restaurant]
+    [connectionState.isWebSocketConnected, createCustomerMutation, restaurant]
   );
 
   // ── Loading / Error states ────────────────────────────
@@ -439,20 +508,56 @@ export default function KioskPage() {
             {/* Logo / Name */}
             <div className="flex flex-col items-center gap-4">
               {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- arbitrary logo URL from restaurant settings
-                <img src={logoUrl} alt={displayName} className="max-h-28 max-w-[280px] object-contain drop-shadow-2xl" />
+                <div className="flex flex-col items-center gap-5 text-center">
+                  <div className="flex min-h-[120px] min-w-[240px] items-center justify-center rounded-[2rem] border border-white/12 bg-black/18 px-6 py-6 shadow-[0_18px_48px_rgba(2,6,23,0.22)] backdrop-blur-md">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary logo URL from restaurant settings */}
+                    <img
+                      src={logoUrl}
+                      alt={displayName}
+                      className="max-h-20 max-w-[200px] object-contain drop-shadow-[0_18px_36px_rgba(15,23,42,0.35)]"
+                    />
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+                      {displayName}
+                    </h1>
+                    <div
+                      className="mx-auto mt-3 h-0.5 w-16 rounded-full opacity-60"
+                      style={{ backgroundColor: accent }}
+                    />
+                  </div>
+                </div>
               ) : (
                 <div className="text-center">
                   <h1 className="text-5xl font-bold tracking-tight">{displayName}</h1>
                   <div className="mx-auto mt-3 h-0.5 w-16 rounded-full opacity-60" style={{ backgroundColor: accent }} />
                 </div>
               )}
-              <p className="text-center text-white/50">
-                Join our rewards program and earn points
-              </p>
+              <Eyebrow icon="spark">Front desk kiosk</Eyebrow>
+              <div className="text-center">
+                <p className="text-lg font-medium text-white/86">
+                  Check in once. Earn points every visit.
+                </p>
+                <p className="mt-3 max-w-sm text-sm leading-7 text-white/48">
+                  Capture this {labels.visitLabel}, unlock loyalty rewards, and
+                  get a follow-up message after you leave.
+                </p>
+              </div>
             </div>
 
-            {/* Buttons */}
+            <div className="grid w-full gap-3 sm:grid-cols-2">
+              <KioskChip
+                icon="gift"
+                label="Loyalty"
+                value={`1 ${labels.spendLabel.toLowerCase()} = 10 points`}
+              />
+              <KioskChip
+                icon="message"
+                label="Follow-up"
+                value={`Private feedback and review routing after your ${labels.visitLabel}`}
+              />
+            </div>
+
             <div className="flex w-full flex-col gap-3">
               <PrimaryButton accent={accent} onClick={() => setScreen("new")}>
                 New {titleCaseLabel(labels.customerLabel)}
@@ -467,11 +572,22 @@ export default function KioskPage() {
         {/* NEW CUSTOMER */}
         {screen === "new" && (
           <GlassCard>
-            <div className="mb-6 flex items-center gap-3">
-              <button type="button" onClick={() => setScreen("welcome")} className="rounded-full p-1.5 text-white/40 transition-colors hover:text-white">
+            <div className="mb-6 space-y-4">
+              <button
+                type="button"
+                onClick={() => setScreen("welcome")}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white"
+              >
                 ←
               </button>
-              <h2 className="text-2xl font-semibold">Create Account</h2>
+              <div>
+                <Eyebrow icon="customers">New guest</Eyebrow>
+                <h2 className="mt-4 text-2xl font-semibold">Create Account</h2>
+                <p className="mt-2 text-sm leading-7 text-white/48">
+                  Save your details once so future {labels.visitLabelPlural} are
+                  faster and loyalty points keep stacking.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-5">
@@ -490,6 +606,20 @@ export default function KioskPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium text-white/60">Mobile Number</label>
                 <NumericKeypad value={phone} onChange={setPhone} maxLength={10} placeholder="(555) 000-0000" accent={accent} />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-white/60">
+                  Email <span className="text-white/30">(optional for receipts and offers)</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="off"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 text-lg text-white placeholder-white/20 outline-none transition-colors focus:border-white/20 focus:bg-white/8"
+                />
               </div>
 
               <div>
@@ -541,10 +671,16 @@ export default function KioskPage() {
               <button type="button" onClick={() => setScreen("welcome")} className="rounded-full p-1.5 text-white/40 transition-colors hover:text-white">
                 ←
               </button>
-              <h2 className="text-2xl font-semibold">Welcome Back</h2>
+              <div>
+                <Eyebrow icon="loyalty">Returning guest</Eyebrow>
+                <h2 className="mt-4 text-2xl font-semibold">Welcome Back</h2>
+              </div>
             </div>
 
-            <p className="mb-4 text-sm text-white/50">Enter the last 4 digits of your phone number</p>
+            <p className="mb-4 text-sm leading-7 text-white/50">
+              Enter the last 4 digits of your phone number so we can find your
+              saved loyalty profile.
+            </p>
 
             <NumericKeypad value={lastFour} onChange={setLastFour} maxLength={4} placeholder="••••" accent={accent} />
 
@@ -562,6 +698,22 @@ export default function KioskPage() {
                       <p className="text-sm text-white/50">
                         <span style={{ color: accent }}>{matchedReturningCustomer.points}</span> loyalty points
                       </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <KioskChip
+                        icon="gift"
+                        label="Points"
+                        value={
+                          <span style={{ color: accent }}>
+                            {matchedReturningCustomer.points}
+                          </span>
+                        }
+                      />
+                      <KioskChip
+                        icon="repeat"
+                        label="Status"
+                        value={`Fast check-in for this ${labels.visitLabel}`}
+                      />
                     </div>
                     <PrimaryButton
                       accent={accent}
@@ -590,7 +742,23 @@ export default function KioskPage() {
               <button type="button" onClick={() => setScreen("new")} className="rounded-full p-1.5 text-white/40 transition-colors hover:text-white">
                 ←
               </button>
-              <h2 className="text-2xl font-semibold">Almost there!</h2>
+              <div>
+                <Eyebrow icon="shield">Consent</Eyebrow>
+                <h2 className="mt-4 text-2xl font-semibold">Almost there!</h2>
+              </div>
+            </div>
+
+            <div className="mb-4 grid gap-3 sm:grid-cols-2">
+              <KioskChip
+                icon="gift"
+                label="Benefits"
+                value="Rewards, visit history, and comeback offers"
+              />
+              <KioskChip
+                icon="message"
+                label="Messaging"
+                value="Reply STOP any time to opt out of SMS"
+              />
             </div>
 
             <label className="flex cursor-pointer items-start gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/8">
@@ -609,7 +777,7 @@ export default function KioskPage() {
                 </div>
               </div>
               <span className="text-sm leading-relaxed text-white/70">
-                I agree to receive SMS messages from <span className="text-white">{displayName}</span> including review requests, deals, and loyalty updates. Msg & data rates may apply. Reply STOP to unsubscribe.
+                I agree to receive messages from <span className="text-white">{displayName}</span> including SMS review requests, loyalty updates, and email offers if I provide an email address. Msg and data rates may apply. Reply STOP to unsubscribe from SMS.
               </span>
             </label>
 
@@ -623,15 +791,23 @@ export default function KioskPage() {
                     type: "new",
                     name: name.trim(),
                     phone,
+                    email: email.trim() || undefined,
                     restaurantId: restaurant._id,
+                    locationId: activeLocationId,
                     birthdayMonth,
                     birthdayDay,
                     optedInSms: true,
+                    optedInEmail: !!email.trim(),
                   });
                 }}
               >
                 Join and earn rewards
               </PrimaryButton>
+              {submissionError && (
+                <p className="mt-3 text-center text-sm text-rose-300">
+                  {submissionError}
+                </p>
+              )}
             </div>
           </GlassCard>
         )}
@@ -646,11 +822,24 @@ export default function KioskPage() {
               >
                 👋
               </div>
-              <h2 className="text-2xl font-bold">Great to see you,</h2>
+              <Eyebrow icon="loyalty">Member found</Eyebrow>
+              <h2 className="mt-4 text-2xl font-bold">Great to see you,</h2>
               <h2 className="text-2xl font-bold" style={{ color: accent }}>{matchedReturningCustomer.name}!</h2>
               <p className="mt-2 text-white/50">
                 You have <span className="font-semibold text-white">{matchedReturningCustomer.points}</span> loyalty points
               </p>
+            </div>
+            <div className="mb-6 grid gap-3 sm:grid-cols-2">
+              <KioskChip
+                icon="gift"
+                label="Current points"
+                value={matchedReturningCustomer.points}
+              />
+              <KioskChip
+                icon="repeat"
+                label="Next step"
+                value={`Check in for this ${labels.visitLabel}`}
+              />
             </div>
             <PrimaryButton
               accent={accent}
@@ -659,10 +848,16 @@ export default function KioskPage() {
                 name: matchedReturningCustomer.name,
                 phone: matchedReturningCustomer.phone,
                 restaurantId: restaurant._id,
+                locationId: activeLocationId,
               })}
             >
               Check In →
             </PrimaryButton>
+            {submissionError ? (
+              <p className="mt-3 text-center text-sm text-rose-300">
+                {submissionError}
+              </p>
+            ) : null}
           </GlassCard>
         )}
 
@@ -670,6 +865,7 @@ export default function KioskPage() {
         {screen === "bill" && (
           <GlassCard>
             <div className="mb-8 text-center">
+              <Eyebrow icon="receipt">Optional spend tracking</Eyebrow>
               <h2 className="text-2xl font-bold">
                 Enter Your {titleCaseLabel(labels.spendLabel)}
               </h2>
@@ -697,6 +893,7 @@ export default function KioskPage() {
                       customerId: checkedInCustomerId,
                       billAmount: amount,
                       restaurantId: restaurant._id,
+                      locationId: activeLocationId,
                     });
                     setPointsEarned(result.pointsEarned);
                     setScreen("success-returning");
@@ -728,6 +925,7 @@ export default function KioskPage() {
               </div>
             </div>
             <div>
+              <Eyebrow icon="spark">Check-in complete</Eyebrow>
               <h2 className="text-3xl font-bold">You&apos;re all set{name.trim() ? `, ${name.trim()}` : ""}!</h2>
               <p className="mt-2 text-lg text-white/50">
                 We&apos;ll text you shortly to hear about your {labels.visitLabel}
@@ -748,6 +946,7 @@ export default function KioskPage() {
           <div className="flex w-full max-w-md flex-col items-center gap-6 text-center animate-in fade-in duration-500">
             <div className="text-6xl">🎉</div>
             <div>
+              <Eyebrow icon="gift">Visit recorded</Eyebrow>
               <h2 className="text-3xl font-bold">Enjoy your visit,</h2>
               <h2 className="text-3xl font-bold" style={{ color: accent }}>{matchedReturningCustomer.name}!</h2>
               <p className="mt-3 text-white/50">
@@ -759,6 +958,18 @@ export default function KioskPage() {
                 </p>
               )}
             </div>
+            <div className="grid w-full gap-3 sm:grid-cols-2">
+              <KioskChip
+                icon="gift"
+                label="Loyalty balance"
+                value={matchedReturningCustomer.points}
+              />
+              <KioskChip
+                icon="receipt"
+                label="This visit"
+                value={pointsEarned > 0 ? `+${pointsEarned} points added` : "Check-in saved"}
+              />
+            </div>
             <div className="mt-2 h-1 w-48 overflow-hidden rounded-full bg-white/10">
               <div
                 className="h-full rounded-full transition-all duration-1000"
@@ -769,6 +980,14 @@ export default function KioskPage() {
           </div>
         )}
 
+      </div>
+
+      <div className="pointer-events-none relative z-10 pb-6 text-center text-[11px] uppercase tracking-[0.18em] text-white/30">
+        {whiteLabelEnabled && whiteLabelHideReviewPilot
+          ? whiteLabelSupportEmail
+            ? `Support: ${whiteLabelSupportEmail}`
+            : whiteLabelBrandName || displayName
+          : "Powered by ReviewPilot AI"}
       </div>
     </div>
   );

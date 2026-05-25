@@ -18,6 +18,18 @@ crons.daily(
   internal.crons.runReengagementSms
 );
 
+crons.interval(
+  "scheduled-campaigns",
+  { minutes: 15 },
+  internal.crons.runScheduledCampaigns
+);
+
+crons.weekly(
+  "competitor-watch",
+  { dayOfWeek: "monday", hourUTC: 13, minuteUTC: 0 },
+  internal.crons.runCompetitorWatch
+);
+
 export default crons;
 
 export const runBirthdaySms = internalAction({
@@ -82,5 +94,41 @@ export const getReengagementCustomers = internalQuery({
         return lastVisitAt >= windowStart && lastVisitAt < windowEnd;
       })
       .map((customer) => customer._id);
+  },
+});
+
+export const runScheduledCampaigns = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const dueCampaignIds = await ctx.runQuery(internal.campaigns.getDueCampaignIds, {});
+
+    for (const campaignId of dueCampaignIds) {
+      await ctx.runAction(internal.sms.executeScheduledCampaign, { campaignId });
+    }
+  },
+});
+
+export const runCompetitorWatch = internalAction({
+  args: {},
+  handler: async (ctx): Promise<{
+    ok: boolean;
+    reason?: string;
+    synced?: number;
+  }> => {
+    if (!process.env.GOOGLE_PLACES_API_KEY) {
+      return { ok: false, reason: "missing-api-key" };
+    }
+
+    const competitorIds = await ctx.runQuery(
+      internal.competitorInternal.getCompetitorIdsForSync,
+      {}
+    );
+    for (const competitorId of competitorIds) {
+      await ctx.runAction(internal.competitorInternal.syncCompetitorSnapshot, {
+        competitorId,
+      });
+    }
+
+    return { ok: true, synced: competitorIds.length };
   },
 });

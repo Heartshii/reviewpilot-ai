@@ -1,5 +1,32 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
+
+type WorkspaceRole = "SUPER_ADMIN" | "OWNER" | "MANAGER" | "STAFF";
+
+async function requireWorkspacePermission(
+  ctx: QueryCtx,
+  actorClerkId: string,
+  restaurantId: string,
+  allowedRoles: WorkspaceRole[]
+) {
+  const actor = await ctx.db
+    .query("users")
+    .withIndex("by_clerkId", (q) => q.eq("clerkId", actorClerkId))
+    .first();
+
+  if (!actor) {
+    throw new Error("User record not found");
+  }
+  if (!allowedRoles.includes(actor.role)) {
+    throw new Error("You do not have permission for this action");
+  }
+  if (actor.role !== "SUPER_ADMIN" && actor.restaurantId !== restaurantId) {
+    throw new Error("Workspace access denied");
+  }
+
+  return actor;
+}
 
 export const getRestaurant = query({
   args: { restaurantId: v.id("restaurants") },
@@ -13,6 +40,57 @@ export const getRestaurant = query({
 export const getRestaurantBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
+    const location = await ctx.db
+      .query("locations")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .first();
+
+    if (location) {
+      const restaurant = await ctx.db.get(location.restaurantId);
+      if (!restaurant) return null;
+      const settings = await ctx.db
+        .query("restaurantSettings")
+        .withIndex("by_restaurantId", (q) =>
+          q.eq("restaurantId", restaurant._id)
+        )
+        .first();
+      return {
+        ...restaurant,
+        slug: location.slug,
+        locationId: location._id,
+        locationName: location.name,
+        googleBusinessUrl:
+          location.googleBusinessUrl ?? restaurant.googleBusinessUrl,
+        twilioNumber: location.twilioNumber ?? restaurant.twilioNumber,
+        restaurantSettings: {
+          sendDelayMinutes: 60,
+          birthdayEnabled: true,
+          reengagement30: true,
+          reengagement60: true,
+          reengagement90: true,
+          aiTone: "Friendly",
+          responseLength: "Medium",
+          autoApprove: false,
+          includeReviewLink: true,
+          whiteLabelEnabled: false,
+          whiteLabelHideReviewPilot: false,
+          leaderboardOptIn: false,
+          leaderboardBadgeLabel: "",
+          preferredMessagingChannel: "SMS",
+          ...settings,
+          kioskDisplayName:
+            location.kioskDisplayName ??
+            settings?.kioskDisplayName ??
+            restaurant.name,
+          kioskAccentColor:
+            location.kioskAccentColor ?? settings?.kioskAccentColor,
+          kioskLogoUrl: location.kioskLogoUrl ?? settings?.kioskLogoUrl,
+          kioskBgImageUrl:
+            location.kioskBgImageUrl ?? settings?.kioskBgImageUrl,
+        },
+      };
+    }
+
     const restaurant = await ctx.db
       .query("restaurants")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -36,9 +114,26 @@ export const getRestaurantBySlug = query({
         responseLength: "Medium",
         autoApprove: false,
         includeReviewLink: true,
+        whiteLabelEnabled: false,
+        whiteLabelHideReviewPilot: false,
+        leaderboardOptIn: false,
+        leaderboardBadgeLabel: "",
+        preferredMessagingChannel: "SMS",
         ...settings,
       },
     };
+  },
+});
+
+export const getLocationsForRestaurant = query({
+  args: { restaurantId: v.id("restaurants") },
+  handler: async (ctx, { restaurantId }) => {
+    const locations = await ctx.db
+      .query("locations")
+      .withIndex("by_restaurantId", (q) => q.eq("restaurantId", restaurantId))
+      .collect();
+
+    return locations.sort((a, b) => a.name.localeCompare(b.name));
   },
 });
 
@@ -93,6 +188,11 @@ export const getRestaurantSettings = query({
         responseLength: "Medium",
         autoApprove: false,
         includeReviewLink: true,
+        whiteLabelEnabled: false,
+        whiteLabelHideReviewPilot: false,
+        leaderboardOptIn: false,
+        leaderboardBadgeLabel: "",
+        preferredMessagingChannel: "SMS",
       }
     );
   },
@@ -114,23 +214,28 @@ function sixtyDaysAgo() {
 }
 
 export const getDashboardStats = query({
-  args: { restaurantId: v.id("restaurants") },
-  handler: async (ctx, { restaurantId }) => {
+  args: {
+    restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, { restaurantId, locationId }) => {
     const restaurant = await ctx.db.get(restaurantId);
     if (!restaurant) throw new Error("Restaurant not found");
 
     const monthStart = startOfMonth();
     const weekStart = sevenDaysAgo();
 
-    const customers = await ctx.db
+    const customers = (await ctx.db
       .query("customers")
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
-      .collect();
+      .collect()).filter((customer) =>
+      locationId ? customer.lastLocationId === locationId : true
+    );
 
-    const allSmsLogs = await ctx.db
+    const allSmsLogs = (await ctx.db
       .query("smsLogs")
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
-      .collect();
+      .collect()).filter((log) => (locationId ? log.locationId === locationId : true));
 
     const smsSentThisMonth = allSmsLogs.filter(
       (s) => s.sentAt >= monthStart && s.status === "SENT"
@@ -144,10 +249,12 @@ export const getDashboardStats = query({
       (s) => s.status === "PENDING_APPROVAL"
     ).length;
 
-    const feedbacks = await ctx.db
+    const feedbacks = (await ctx.db
       .query("feedback")
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
-      .collect();
+      .collect()).filter((feedback) =>
+      locationId ? feedback.locationId === locationId : true
+    );
 
     const feedbackThisWeek = feedbacks.filter(
       (f) => f.createdAt >= weekStart
@@ -176,15 +283,18 @@ export const getDashboardStats = query({
 });
 
 export const getRecentActivity = query({
-  args: { restaurantId: v.id("restaurants") },
-  handler: async (ctx, { restaurantId }) => {
-    const logs = await ctx.db
+  args: {
+    restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, { restaurantId, locationId }) => {
+    const logs = (await ctx.db
       .query("smsLogs")
       .withIndex("by_restaurant_sentAt", (q) =>
         q.eq("restaurantId", restaurantId)
       )
       .order("desc")
-      .take(20);
+      .take(40)).filter((log) => (locationId ? log.locationId === locationId : true)).slice(0, 20);
 
     const result = await Promise.all(
       logs.map(async (log) => {
@@ -207,9 +317,12 @@ export const getRecentActivity = query({
 });
 
 export const getPendingApprovals = query({
-  args: { restaurantId: v.id("restaurants") },
-  handler: async (ctx, { restaurantId }) => {
-    const logs = await ctx.db
+  args: {
+    restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, { restaurantId, locationId }) => {
+    const logs = (await ctx.db
       .query("smsLogs")
       .filter((q) =>
         q.and(
@@ -217,22 +330,38 @@ export const getPendingApprovals = query({
           q.eq(q.field("status"), "PENDING_APPROVAL")
         )
       )
-      .collect();
+      .collect()).filter((log) => (locationId ? log.locationId === locationId : true));
 
-    const feedbacks = await ctx.db
+    const feedbacks = (await ctx.db
       .query("feedback")
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
-      .collect();
+      .collect()).filter((feedback) =>
+      locationId ? feedback.locationId === locationId : true
+    );
 
     const feedbackByCustomer = new Map<
       string,
-      { rating: number; createdAt: number }
+      {
+        rating: number;
+        createdAt: number;
+        sentiment?: "POSITIVE" | "NEUTRAL" | "NEGATIVE";
+        sentimentCategory?: string;
+        sentimentSummary?: string;
+        customerMessage?: string;
+      }
     >();
     for (const f of feedbacks) {
       if (f.customerId) {
         const existing = feedbackByCustomer.get(f.customerId);
         if (!existing || f.createdAt > existing.createdAt)
-          feedbackByCustomer.set(f.customerId, { rating: f.rating, createdAt: f.createdAt });
+          feedbackByCustomer.set(f.customerId, {
+            rating: f.rating,
+            createdAt: f.createdAt,
+            sentiment: f.sentiment,
+            sentimentCategory: f.sentimentCategory,
+            sentimentSummary: f.sentimentSummary,
+            customerMessage: f.customerMessage,
+          });
       }
     }
 
@@ -241,18 +370,32 @@ export const getPendingApprovals = query({
         let customerName = "—";
         let phone = "";
         let rating = 0;
+        let latestFeedback:
+          | {
+              rating: number;
+              createdAt: number;
+              sentiment?: "POSITIVE" | "NEUTRAL" | "NEGATIVE";
+              sentimentCategory?: string;
+              sentimentSummary?: string;
+              customerMessage?: string;
+            }
+          | undefined;
         if (log.customerId) {
           const c = await ctx.db.get(log.customerId);
           customerName = c?.name ?? "—";
           phone = c?.phone ?? "";
-        const r = feedbackByCustomer.get(log.customerId);
-        if (r) rating = r.rating;
+          latestFeedback = feedbackByCustomer.get(log.customerId);
+          if (latestFeedback) rating = latestFeedback.rating;
         }
         return {
           ...log,
           customerName,
           phone,
           rating,
+          sentiment: latestFeedback?.sentiment,
+          sentimentCategory: latestFeedback?.sentimentCategory,
+          sentimentSummary: latestFeedback?.sentimentSummary,
+          customerMessage: latestFeedback?.customerMessage,
         };
       })
     );
@@ -261,21 +404,30 @@ export const getPendingApprovals = query({
 });
 
 export const getCustomers = query({
-  args: { restaurantId: v.id("restaurants") },
-  handler: async (ctx, { restaurantId }) => {
-    const customers = await ctx.db
+  args: {
+    restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, { restaurantId, locationId }) => {
+    const customers = (await ctx.db
       .query("customers")
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
-      .collect();
+      .collect()).filter((customer) =>
+      locationId ? customer.lastLocationId === locationId : true
+    );
 
-    const feedbacks = await ctx.db
+    const feedbacks = (await ctx.db
       .query("feedback")
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
-      .collect();
-    const receipts = await ctx.db
+      .collect()).filter((feedback) =>
+      locationId ? feedback.locationId === locationId : true
+    );
+    const receipts = (await ctx.db
       .query("receipts")
       .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
-      .collect();
+      .collect()).filter((receipt) =>
+      locationId ? receipt.locationId === locationId : true
+    );
 
     const latestFeedbackByCustomer = new Map<
       string,
@@ -331,8 +483,9 @@ export const getCustomerReceiptHistory = query({
   args: {
     customerId: v.id("customers"),
     restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
   },
-  handler: async (ctx, { customerId, restaurantId }) => {
+  handler: async (ctx, { customerId, restaurantId, locationId }) => {
     const customer = await ctx.db.get(customerId);
     if (!customer || customer.restaurantId !== restaurantId) {
       return [];
@@ -348,7 +501,9 @@ export const getCustomerReceiptHistory = query({
       )
       .collect();
 
-    return receipts.sort((a, b) => b.submittedAt - a.submittedAt);
+    return receipts
+      .filter((receipt) => (locationId ? receipt.locationId === locationId : true))
+      .sort((a, b) => b.submittedAt - a.submittedAt);
   },
 });
 
@@ -356,8 +511,9 @@ export const getCustomerSmsHistory = query({
   args: {
     customerId: v.id("customers"),
     restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
   },
-  handler: async (ctx, { customerId, restaurantId }) => {
+  handler: async (ctx, { customerId, restaurantId, locationId }) => {
     const customer = await ctx.db.get(customerId);
     if (!customer || customer.restaurantId !== restaurantId) {
       return [];
@@ -373,7 +529,100 @@ export const getCustomerSmsHistory = query({
       )
       .collect();
 
-    return logs.sort((a, b) => b.sentAt - a.sentAt);
+    return logs
+      .filter((log) => (locationId ? log.locationId === locationId : true))
+      .sort((a, b) => b.sentAt - a.sentAt);
+  },
+});
+
+export const getCustomerPrivacyExport = query({
+  args: {
+    actorClerkId: v.string(),
+    customerId: v.id("customers"),
+    restaurantId: v.id("restaurants"),
+  },
+  handler: async (ctx, { actorClerkId, customerId, restaurantId }) => {
+    await requireWorkspacePermission(ctx, actorClerkId, restaurantId, [
+      "SUPER_ADMIN",
+      "OWNER",
+    ]);
+
+    const customer = await ctx.db.get(customerId);
+    if (!customer || customer.restaurantId !== restaurantId) {
+      throw new Error("Invalid customer");
+    }
+
+    const [restaurant, feedback, receipts, smsLogs, claims, voiceCalls, notifications] =
+      await Promise.all([
+        ctx.db.get(restaurantId),
+        ctx.db
+          .query("feedback")
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("restaurantId"), restaurantId),
+              q.eq(q.field("customerId"), customerId)
+            )
+          )
+          .collect(),
+        ctx.db
+          .query("receipts")
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("restaurantId"), restaurantId),
+              q.eq(q.field("customerId"), customerId)
+            )
+          )
+          .collect(),
+        ctx.db
+          .query("smsLogs")
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("restaurantId"), restaurantId),
+              q.eq(q.field("customerId"), customerId)
+            )
+          )
+          .collect(),
+        ctx.db
+          .query("loyaltyClaims")
+          .withIndex("by_customerId", (q) => q.eq("customerId", customerId))
+          .collect(),
+        ctx.db
+          .query("voiceRecoveryCalls")
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("restaurantId"), restaurantId),
+              q.eq(q.field("customerId"), customerId)
+            )
+          )
+          .collect(),
+        ctx.db
+          .query("notifications")
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("restaurantId"), restaurantId),
+              q.eq(q.field("customerId"), customerId)
+            )
+          )
+          .collect(),
+      ]);
+
+    return {
+      exportedAt: Date.now(),
+      restaurant: restaurant
+        ? {
+            id: restaurant._id,
+            name: restaurant.name,
+            slug: restaurant.slug,
+          }
+        : null,
+      customer,
+      feedback: feedback.sort((a, b) => b.createdAt - a.createdAt),
+      receipts: receipts.sort((a, b) => b.submittedAt - a.submittedAt),
+      smsLogs: smsLogs.sort((a, b) => b.sentAt - a.sentAt),
+      loyaltyClaims: claims.sort((a, b) => b.createdAt - a.createdAt),
+      voiceRecoveryCalls: voiceCalls.sort((a, b) => b.createdAt - a.createdAt),
+      notifications: notifications.sort((a, b) => b.createdAt - a.createdAt),
+    };
   },
 });
 
@@ -406,15 +655,18 @@ export const getSegmentCounts = query({
 });
 
 export const getSmsHistory = query({
-  args: { restaurantId: v.id("restaurants") },
-  handler: async (ctx, { restaurantId }) => {
-    const logs = await ctx.db
+  args: {
+    restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, { restaurantId, locationId }) => {
+    const logs = (await ctx.db
       .query("smsLogs")
       .withIndex("by_restaurant_sentAt", (q) =>
         q.eq("restaurantId", restaurantId)
       )
       .order("desc")
-      .collect();
+      .collect()).filter((log) => (locationId ? log.locationId === locationId : true));
 
     const result = await Promise.all(
       logs.map(async (log) => {
@@ -434,8 +686,25 @@ export const getSmsHistory = query({
 });
 
 export const getAiInsightsSnapshot = query({
-  args: { restaurantId: v.id("restaurants") },
-  handler: async (ctx, { restaurantId }) => {
+  args: {
+    restaurantId: v.id("restaurants"),
+    locationId: v.optional(v.id("locations")),
+  },
+  handler: async (ctx, { restaurantId, locationId }) => {
+    const computeCstat = (rows: Array<{ rating: number }>) => {
+      if (rows.length === 0) return 0;
+      return Math.round(
+        (rows.filter((row) => row.rating >= 4).length / rows.length) * 100
+      );
+    };
+
+    const computeNps = (rows: Array<{ rating: number }>) => {
+      if (rows.length === 0) return 0;
+      const promoters = rows.filter((row) => row.rating === 5).length;
+      const detractors = rows.filter((row) => row.rating <= 3).length;
+      return Math.round(((promoters - detractors) / rows.length) * 100);
+    };
+
     const restaurant = await ctx.db.get(restaurantId);
     if (!restaurant) throw new Error("Restaurant not found");
 
@@ -446,7 +715,7 @@ export const getAiInsightsSnapshot = query({
     const monthStart = startOfMonth();
     const sixtyDays = sixtyDaysAgo();
 
-    const [customers, feedbacks, receipts, smsLogs] = await Promise.all([
+    const [allCustomers, allFeedbacks, allReceipts, allSmsLogs] = await Promise.all([
       ctx.db
         .query("customers")
         .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
@@ -464,6 +733,19 @@ export const getAiInsightsSnapshot = query({
         .filter((q) => q.eq(q.field("restaurantId"), restaurantId))
         .collect(),
     ]);
+
+    const customers = allCustomers.filter((customer) =>
+      locationId ? customer.lastLocationId === locationId : true
+    );
+    const feedbacks = allFeedbacks.filter((feedback) =>
+      locationId ? feedback.locationId === locationId : true
+    );
+    const receipts = allReceipts.filter((receipt) =>
+      locationId ? receipt.locationId === locationId : true
+    );
+    const smsLogs = allSmsLogs.filter((log) =>
+      locationId ? log.locationId === locationId : true
+    );
 
     const currentWeekFeedback = feedbacks.filter(
       (feedback) => feedback.createdAt >= currentWeekStart
@@ -492,6 +774,10 @@ export const getAiInsightsSnapshot = query({
         ? previousWeekFeedback.reduce((sum, feedback) => sum + feedback.rating, 0) /
           previousWeekFeedback.length
         : 0;
+    const currentWeekCsat = computeCstat(currentWeekFeedback);
+    const previousWeekCsat = computeCstat(previousWeekFeedback);
+    const currentWeekNps = computeNps(currentWeekFeedback);
+    const previousWeekNps = computeNps(previousWeekFeedback);
 
     const latestFeedbackByCustomer = new Map<
       string,
@@ -593,15 +879,33 @@ export const getAiInsightsSnapshot = query({
           ? bucketFeedback.reduce((sum, feedback) => sum + feedback.rating, 0) /
             bucketFeedback.length
           : 0;
+      const bucketCsat = computeCstat(bucketFeedback);
+      const bucketNps = computeNps(bucketFeedback);
 
       return {
         label: weeksAgo === 0 ? "This week" : `${weeksAgo}w ago`,
         rating: Number(avgRating.toFixed(1)),
+        csat: bucketCsat,
+        nps: bucketNps,
         feedback: bucketFeedback.length,
         newCustomers: bucketCustomers.length,
         sms: bucketSms.length,
       };
     });
+
+    const lastThirtyDaysStart = now - 30 * 24 * 60 * 60 * 1000;
+    const lastThirtyDayFeedback = feedbacks.filter(
+      (feedback) => feedback.createdAt >= lastThirtyDaysStart
+    );
+    const promoters30d = lastThirtyDayFeedback.filter(
+      (feedback) => feedback.rating === 5
+    ).length;
+    const passives30d = lastThirtyDayFeedback.filter(
+      (feedback) => feedback.rating === 4
+    ).length;
+    const detractors30d = lastThirtyDayFeedback.filter(
+      (feedback) => feedback.rating <= 3
+    ).length;
 
     let recommendedSegment: "INACTIVE" | "LOYAL" | "ATRISK" | "NEW" | "ALL" = "ALL";
     let recommendationTitle = "Keep the core funnel running";
@@ -644,6 +948,15 @@ export const getAiInsightsSnapshot = query({
       birthdaySentThisMonth,
       averageCurrentWeekRating: Number(averageCurrentWeekRating.toFixed(1)),
       averagePreviousWeekRating: Number(averagePreviousWeekRating.toFixed(1)),
+      currentWeekCsat,
+      previousWeekCsat,
+      currentWeekNps,
+      previousWeekNps,
+      csatDelta: currentWeekCsat - previousWeekCsat,
+      npsDelta: currentWeekNps - previousWeekNps,
+      promoters30d,
+      passives30d,
+      detractors30d,
       ratingDelta: Number(ratingDelta.toFixed(1)),
       currentWeekNewCustomers,
       previousWeekNewCustomers,

@@ -5,8 +5,15 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { CustomerDrawer } from "@/components/CustomerDrawer";
+import { IconBadge } from "@/components/ui/premium-icon";
+import {
+  WorkspaceHero,
+  WorkspaceHeroStat,
+  WorkspaceSectionHeader,
+} from "@/components/ui/workspace-page";
+import { useLocationScope } from "@/hooks/useLocationScope";
+import { useRestaurantId } from "@/hooks/useRestaurantId";
 import { getBusinessLabels, titleCaseLabel } from "@/lib/business-copy";
 
 function formatCurrency(amount: number) {
@@ -43,36 +50,20 @@ function statusLabel(customer: {
   return { text: "Active", tone: "bg-blue-500/15 text-blue-300" };
 }
 
-function MetricCard({
-  label,
-  value,
-  helper,
-  valueTone = "text-white",
-}: {
-  label: string;
-  value: string;
-  helper?: string;
-  valueTone?: string;
-}) {
-  return (
-    <div className="h-full rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(24,28,42,0.94),rgba(17,20,33,0.94))] px-5 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)]">
-      <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/28">
-        {label}
-      </p>
-      <div className="mt-2 min-h-[56px]">
-        <p
-          className={`max-w-full whitespace-nowrap text-[clamp(1.45rem,2.4vw,2rem)] font-semibold leading-none tracking-tight tabular-nums ${valueTone}`}
-        >
-          {value}
-        </p>
-      </div>
-      <p className="mt-1 text-xs text-white/36">{helper ?? "\u00A0"}</p>
-    </div>
-  );
+function initialsFor(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0] ?? "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 export default function CustomersPage() {
   const restaurantId = useRestaurantId();
+  const { selectedLocationId, selectedLocation } = useLocationScope();
+  const locationId =
+    selectedLocationId === "ALL" ? undefined : selectedLocationId;
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [drawerIdOverride, setDrawerIdOverride] = useState<
@@ -81,7 +72,7 @@ export default function CustomersPage() {
 
   const customers = useQuery(
     api.queries.getCustomers,
-    restaurantId ? { restaurantId } : "skip"
+    restaurantId ? { restaurantId, locationId } : "skip"
   );
   const restaurant = useQuery(
     api.queries.getRestaurant,
@@ -104,13 +95,13 @@ export default function CustomersPage() {
   const smsHistory = useQuery(
     api.queries.getCustomerSmsHistory,
     restaurantId && activeDrawerId
-      ? { restaurantId, customerId: activeDrawerId }
+      ? { restaurantId, customerId: activeDrawerId, locationId }
       : "skip"
   );
   const receiptHistory = useQuery(
     api.queries.getCustomerReceiptHistory,
     restaurantId && activeDrawerId
-      ? { restaurantId, customerId: activeDrawerId }
+      ? { restaurantId, customerId: activeDrawerId, locationId }
       : "skip"
   );
 
@@ -119,7 +110,9 @@ export default function CustomersPage() {
     const q = search.toLowerCase();
     return customers.filter(
       (customer: CustomerRow) =>
-        customer.name.toLowerCase().includes(q) || customer.phone.includes(q)
+        customer.name.toLowerCase().includes(q) ||
+        customer.phone.includes(q) ||
+        customer.email?.toLowerCase().includes(q)
     );
   }, [customers, search]);
 
@@ -151,120 +144,153 @@ export default function CustomersPage() {
   const averageSpend = filtered.length > 0 ? totalRevenue / filtered.length : 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.16em] text-white/28">
-          Customer memory
-        </p>
-        <h1 className="mt-2 text-3xl font-light tracking-tight text-white">
-          {titleCaseLabel(labels.customerLabelPlural)}
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-7 text-white/42">
-          Review {labels.visitLabel} count, lifetime spend, loyalty points, and{" "}
-          {labels.customerLabel} sentiment before launching campaigns or
-          approving recovery outreach.
-        </p>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard
-          label={titleCaseLabel(labels.customerLabelPlural)}
-          value={filtered.length.toString()}
-          helper={`${titleCaseLabel(labels.customerLabelPlural)} in current view`}
-        />
-        <MetricCard
-          label="Loyal"
-          value={loyalCount.toString()}
-          helper={`${loyalRate.toFixed(0)}% loyalty rate`}
-          valueTone="text-emerald-300"
-        />
-        <MetricCard
-          label="Tracked spend"
-          value={formatCompactCurrency(totalRevenue)}
-          helper={`Avg ${formatCurrency(averageSpend)} per customer`}
-          valueTone="text-sky-300"
-        />
-      </div>
-
-      <div className="dashboard-surface rounded-[1.75rem] p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-white/76">
-              {titleCaseLabel(labels.customerLabel)} directory
-            </p>
-            <p className="mt-1 text-xs text-white/34">
-              Click any {labels.customerLabel} to open {labels.visitLabel}
-              history, loyalty points, SMS
-              history, and bill-based receipt details.
-            </p>
-          </div>
+    <div className="space-y-6 px-5 py-6 sm:px-6">
+      <WorkspaceHero
+        eyebrow="Customer memory"
+        title={`${titleCaseLabel(labels.customerLabelPlural)} who return, spend, and need attention`}
+        description={`See ${labels.visitLabel} history, lifetime spend, loyalty balance, and recovery signals before launching outreach. ReviewPilot keeps the whole relationship visible so campaigns feel intentional instead of guesswork.`}
+        scope={`Scope: ${selectedLocation?.name ?? "All locations"} · 1 USD = 10 loyalty points`}
+        actions={
           <input
             type="search"
-            placeholder="Search by name or phone..."
+            placeholder={`Search ${labels.customerLabelPlural.toLowerCase()} by name, phone, or email`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full max-w-md rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white placeholder:text-white/24 focus:border-white/14 focus:outline-none"
+            className="w-full min-w-[16rem] rounded-[1.25rem] border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white placeholder:text-white/28 focus:border-white/14 focus:outline-none lg:w-[24rem]"
           />
-        </div>
+        }
+      />
 
-        <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-white/7">
-          <div className="hidden grid-cols-[1.2fr_0.95fr_0.65fr_0.75fr_0.95fr_0.75fr_0.95fr] gap-3 border-b border-white/7 bg-white/[0.03] px-4 py-3 text-xs uppercase tracking-[0.16em] text-white/28 lg:grid">
-            <span>Name</span>
-            <span>Phone</span>
-            <span>Visits</span>
-            <span>Points</span>
-            <span>Total spent</span>
-            <span>Rating</span>
-            <span>Status</span>
-          </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <WorkspaceHeroStat
+          eyebrow="Directory"
+          label={titleCaseLabel(labels.customerLabelPlural)}
+          value={filtered.length.toString()}
+          note={`${titleCaseLabel(labels.customerLabelPlural)} in the current scope`}
+          icon="customers"
+        />
+        <WorkspaceHeroStat
+          eyebrow="Retention"
+          label="Loyal base"
+          value={loyalCount.toString()}
+          note={`${loyalRate.toFixed(0)}% loyalty rate in this view`}
+          icon="loyalty"
+        />
+        <WorkspaceHeroStat
+          eyebrow="Revenue"
+          label="Tracked spend"
+          value={formatCompactCurrency(totalRevenue)}
+          note={`Average ${formatCurrency(averageSpend)} per ${labels.customerLabel}`}
+          icon="spend"
+        />
+      </div>
 
-          <div className="divide-y divide-white/6">
-            {filtered.map((customer: CustomerRow) => {
-              const status = statusLabel(customer);
+      <section className="rounded-[2rem] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6 shadow-[0_24px_80px_rgba(7,17,29,0.35)]">
+        <WorkspaceSectionHeader
+          eyebrow="Directory"
+          title={`${titleCaseLabel(labels.customerLabel)} directory`}
+          description={`Open any ${labels.customerLabel} to see loyalty balance, message history, bill receipts, contact permissions, and privacy actions in one premium workspace panel.`}
+          action={
+            <div className="rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 text-xs tracking-[0.16em] text-white/42">
+              Points rule: 1 USD = 10 loyalty points
+            </div>
+          }
+        />
 
-              return (
-                <button
-                  key={customer._id}
-                  type="button"
-                  onClick={() => setDrawerIdOverride(customer._id)}
-                  className="grid w-full gap-3 px-4 py-4 text-left transition-colors hover:bg-white/[0.03] lg:grid-cols-[1.2fr_0.95fr_0.65fr_0.75fr_0.95fr_0.75fr_0.95fr]"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-white underline-offset-4 hover:underline">
-                      {customer.name}
-                    </p>
-                    <p className="mt-1 text-xs text-white/28 lg:hidden">
-                      {customer.phone}
-                    </p>
-                  </div>
-                  <p className="hidden text-sm text-white/48 lg:block">
-                    {customer.phone}
-                  </p>
-                  <p className="text-sm text-white/68">{customer.visitCount}</p>
-                  <p className="text-sm text-white/68">{customer.points}</p>
-                  <p className="text-sm text-white/68">
-                    {formatCurrency(customer.totalSpent)}
-                  </p>
-                  <p className="text-sm text-white/68">
-                    {customer.latestRating !== undefined
-                      ? `${customer.latestRating}/5`
-                      : "-"}
-                  </p>
-                  <div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs ${status.tone}`}>
+        <div className="mt-6 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {filtered.map((customer: CustomerRow) => {
+            const status = statusLabel(customer);
+
+            return (
+              <button
+                key={customer._id}
+                type="button"
+                onClick={() => setDrawerIdOverride(customer._id)}
+                className="group relative overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,17,29,0.98),rgba(10,18,29,0.9))] p-5 text-left shadow-[0_22px_60px_rgba(2,6,23,0.22)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/18 hover:shadow-[0_30px_80px_rgba(8,145,178,0.16)]"
+              >
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.42),transparent)] opacity-80" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-[radial-gradient(circle_at_bottom,rgba(52,211,153,0.1),transparent_74%)] opacity-90" />
+                <div className="relative">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] font-display text-sm font-semibold tracking-[0.2em] text-white/72">
+                        {initialsFor(customer.name)}
+                      </div>
+                      <div>
+                        <p className="font-display text-[1.15rem] font-semibold tracking-[-0.03em] text-white">
+                          {customer.name}
+                        </p>
+                        <p className="mt-1 text-sm text-white/45">
+                          {customer.phone}
+                        </p>
+                        {customer.email ? (
+                          <p className="mt-1 text-xs text-sky-200/72">
+                            {customer.email}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs ${status.tone}`}>
                       {status.text}
                     </span>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
-        <div className="mt-4 text-xs text-white/26">
-          Points rule: 1 USD = 10 loyalty points
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/34">
+                        {titleCaseLabel(labels.visitLabelPlural)}
+                      </p>
+                      <p className="mt-2 font-display text-[1.55rem] font-semibold tracking-[-0.04em] text-white">
+                        {customer.visitCount}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/34">
+                        Points
+                      </p>
+                      <p className="mt-2 font-display text-[1.55rem] font-semibold tracking-[-0.04em] text-white">
+                        {customer.points}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/34">
+                        Spend
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-white">
+                        {formatCurrency(customer.totalSpent)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/34">
+                        Rating
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-white">
+                        {customer.latestRating !== undefined
+                          ? `${customer.latestRating}/5`
+                          : "--"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs text-white/38">
+                      <IconBadge
+                        name="message"
+                        className="h-9 w-9 border-white/8 bg-white/[0.03] text-white/64"
+                        iconClassName="h-[15px] w-[15px]"
+                      />
+                      View history, notes, receipts, and privacy tools
+                    </div>
+                    <span className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300 transition-transform group-hover:translate-x-0.5">
+                      Open profile -&gt;
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </section>
 
       {selected && (
         <CustomerDrawer

@@ -1,23 +1,30 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getSuperAdminEmails } from "@/lib/env";
+import {
+  decodeE2ESession,
+  E2E_SESSION_COOKIE,
+  isE2ETestModeAllowed,
+} from "@/lib/e2e-session";
 import type { ReviewPilotRole } from "@/types/roles";
 
 const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
+const isOwnerRoute = createRouteMatcher(["/owner(.*)"]);
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 const isKioskRoute = createRouteMatcher(["/kiosk/(.*)"]);
 const isPublicRoute = createRouteMatcher([
   "/",
   "/privacy",
   "/terms",
+  "/accept-invite(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/leaderboard(.*)",
+  "/redeem/(.*)",
 ]);
 
 function readAllowedAdminEmails() {
-  return (process.env.SUPER_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
+  return getSuperAdminEmails().map((email) => email.toLowerCase());
 }
 
 function claimToString(value: unknown) {
@@ -46,6 +53,9 @@ function readRoleFromClaims(rawClaims: Record<string, unknown> | undefined) {
 
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
+  const e2eSession = isE2ETestModeAllowed(req.nextUrl.hostname)
+    ? decodeE2ESession(req.cookies.get(E2E_SESSION_COOKIE)?.value)
+    : null;
 
   // Allow public routes without authentication
   if (isPublicRoute(req)) {
@@ -61,10 +71,10 @@ export default clerkMiddleware(async (auth, req) => {
   // We intentionally do not hard-block by Clerk role metadata here because
   // new users may not have synced metadata yet, and the app itself can guide
   // signed-in users into setup if they do not have a restaurant workspace.
-  if (isDashboardRoute(req)) {
+  if (isDashboardRoute(req) || isOwnerRoute(req)) {
     const authResult = await auth();
     const { userId, redirectToSignIn } = authResult;
-    if (!userId) {
+    if (!userId && !e2eSession?.clerkId) {
       return redirectToSignIn({ returnBackUrl: pathname });
     }
     return NextResponse.next();

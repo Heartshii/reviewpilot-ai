@@ -1,6 +1,14 @@
-﻿node_modules/
+node_modules/
 .next/
+.cache/
+.storybook-cache/
+storybook-static/
 .env.local
+.env*.local
 .convex/
 dist/
 *.node
+coverage/
+playwright-report/
+test-results/
+tsconfig.tsbuildinfo

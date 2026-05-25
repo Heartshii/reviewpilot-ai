@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
+import { cookies, headers } from "next/headers";
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
-import { Providers } from "@/components/providers";
+import { ProvidersWithSession } from "@/components/providers";
+import {
+  decodeE2ESession,
+  E2E_SESSION_COOKIE,
+  isE2ETestModeAllowed,
+} from "@/lib/e2e-session";
 import "./globals.css";
 
 const premiumParticles = [
@@ -39,11 +45,19 @@ export const metadata: Metadata = {
     "ReviewPilot AI helps location-based businesses recover unhappy guests, grow reviews, and drive repeat visits with kiosk and SMS automation.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headerStore = await headers();
+  const hostHeader = headerStore.get("host") ?? "";
+  const hostname = hostHeader.split(":")[0] ?? "";
+  const cookieStore = await cookies();
+  const initialE2ESession = isE2ETestModeAllowed(hostname)
+    ? decodeE2ESession(cookieStore.get(E2E_SESSION_COOKIE)?.value)
+    : null;
+
   return (
     <ClerkProvider
       afterSignOutUrl="/"
@@ -83,7 +97,9 @@ export default function RootLayout({
             ))}
           </div>
           <div className="relative">
-            <Providers>{children}</Providers>
+            <ProvidersWithSession initialE2ESession={initialE2ESession}>
+              {children}
+            </ProvidersWithSession>
           </div>
         </body>
       </html>
